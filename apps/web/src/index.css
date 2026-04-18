@@ -1,0 +1,264 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* =============================================================================
+   CYBER-ELEGANT GLASSMORPHISM — Design system
+   ============================================================================= */
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand-bg: var(--bg);
+  --color-brand-surface: var(--surface);
+  --color-brand-sidebar: var(--surface);
+  --color-brand-chat-list: var(--surface);
+  --color-brand-input: var(--glass-bg);
+  --color-brand-glass: var(--glass-bg);
+  --color-brand-border: var(--border);
+  --color-brand-text: var(--text);
+  --color-brand-text-muted: var(--text-muted);
+  --color-brand-accent: var(--accent-primary);
+}
+
+/* -----------------------------------------------------------------------------
+   1. CORE COLOR SYSTEM (CSS Variables)
+   ----------------------------------------------------------------------------- */
+
+/* Dark Mode (Default) */
+:root {
+  --bg: #050505;
+  --surface: #121212;
+  --text: #FFFFFF;
+  --text-muted: #A1A1AA;
+  --accent-primary: #6366F1;
+  --accent-secondary: #A855F7;
+  --accent-tertiary: #EC4899;
+  /* Glass recipe - dark */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Light Mode */
+.light {
+  --bg: #F0F4F8;
+  --surface: #FFFFFF;
+  --text: #1E293B;
+  --text-muted: #64748B;
+  --accent-primary: #F43F5E;
+  --accent-secondary: #F59E0B;
+  --accent-tertiary: #8B5CF6;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --border: rgba(99, 102, 241, 0.15);
+  --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+}
+
+/* -----------------------------------------------------------------------------
+   2. THE "GLASS" RECIPE
+   ----------------------------------------------------------------------------- */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-glass), 0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+
+/* -----------------------------------------------------------------------------
+   3. COLORFUL GRADIENTS (3-stop)
+   ----------------------------------------------------------------------------- */
+
+.bg-colorful-gradient {
+  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+}
+
+.light .bg-colorful-gradient {
+  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+}
+
+.gradient-text {
+  background: linear-gradient(90deg, #6366F1, #A855F7, #EC4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.light .gradient-text {
+  background: linear-gradient(90deg, #F43F5E, #F59E0B, #8B5CF6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 8s ease infinite;
+}
+
+/* -----------------------------------------------------------------------------
+   Component overrides using design tokens
+   ----------------------------------------------------------------------------- */
+
+.chat-list-item-selected {
+  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 24px -4px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.light .chat-list-item-selected {
+  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+}
+
+.chat-list-item-selected h3 {
+  @apply font-semibold text-white;
+}
+
+.chat-list-item-selected .text-brand-text-muted,
+.chat-list-item-selected p {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.chat-list-item-selected .chat-read-chevrons {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-list-item-selected .chat-avatar-placeholder {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-item-active {
+  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  color: white;
+  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.5);
+}
+
+.light .nav-item-active {
+  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+}
+
+.btn-send-gradient {
+  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  color: white;
+  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.45);
+}
+
+.light .btn-send-gradient {
+  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+}
+
+.message-bubble-own {
+  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  color: white;
+  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.35);
+}
+
+.light .message-bubble-own {
+  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+}
+
+.message-bubble-other {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.light .message-bubble-other {
+  color: var(--text);
+}
+
+.light .sidebar-light-tint {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Chat window background: base + optional ambient is in App */
+.chat-window-theme {
+  background: var(--bg);
+}
+
+/* -----------------------------------------------------------------------------
+   5. TYPOGRAPHY — use brand text classes
+   ----------------------------------------------------------------------------- */
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-brand-text font-sans antialiased overflow-hidden transition-colors duration-300;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   6. SCROLLBARS — 4px, transparent until hover
+   ----------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Secure connection indicator dots */
+.secure-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  opacity: 0.8;
+  animation: secure-dot-pulse 1.5s ease-in-out infinite;
+}
+.secure-dot:nth-child(2) { animation-delay: 0.2s; }
+.secure-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes secure-dot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* -----------------------------------------------------------------------------
+   UTILITIES
+   ----------------------------------------------------------------------------- */
+
+.shadow-glow {
+  box-shadow: 0 0 24px -4px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.light .shadow-glow {
+  box-shadow: 0 0 24px -4px rgba(244, 63, 94, 0.25);
+}
