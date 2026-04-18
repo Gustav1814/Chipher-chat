@@ -7,150 +7,128 @@ interface RightPanelProps {
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({ activeChatId }) => {
-  const { users, userAvatars, myFingerprint, remoteFingerprints } = useAuth();
+  const { users, userAvatars, myFingerprint, remoteFingerprints, messageHistory, onlineUsers } = useAuth();
   const theirFingerprint = activeChatId ? remoteFingerprints[activeChatId] : null;
   const contact = activeChatId ? users.find((u) => u.username === activeChatId) : null;
   const displayName = contact?.displayName || contact?.username || activeChatId;
   const contactStatus = contact?.status ?? '';
   const contactAvatar = activeChatId ? userAvatars[activeChatId] : null;
+  const isOnline = activeChatId ? onlineUsers.has(activeChatId) || contact?.online : false;
 
-  const mediaThumbs = [
-    'linear-gradient(135deg, #2d1b69, #1a1a2e)',
-    'linear-gradient(135deg, #1a2a3a, #0f1923)',
-    'linear-gradient(135deg, #2a1a3a, #1a0f23)',
-    'linear-gradient(135deg, #1a3a2a, #0f2319)',
-    'linear-gradient(135deg, #3a2a1a, #23190f)',
-    'linear-gradient(135deg, #1a2a3a, #0f1923)',
-    'linear-gradient(135deg, #2d1b69, #1a1a2e)',
-    'linear-gradient(135deg, #3a1a2a, #230f19)',
-  ];
+  // Extract real shared media from message history
+  const messages = activeChatId ? (messageHistory[activeChatId] || []) : [];
+  const sharedImages = messages.filter((m) => m.attachment?.type === 'image' && m.attachment?.data);
+  const totalMessages = messages.length;
 
   return (
     <div className="w-80 h-full flex flex-col border-l border-brand-border glass-panel p-5 overflow-y-auto">
-      {activeChatId && (
+      {activeChatId ? (
         <>
-          <h3 className="text-sm font-semibold mb-3">Contact profile</h3>
-          <div className="flex flex-col items-center p-4 rounded-2xl border border-brand-border bg-brand-glass mb-5">
-            {contactAvatar ? (
-              <img src={`data:image/png;base64,${contactAvatar}`} alt="" className="w-16 h-16 rounded-full border-2 border-brand-accent object-cover mb-3" />
-            ) : (
-              <div className="w-16 h-16 rounded-full border-2 border-brand-accent bg-brand-accent flex items-center justify-center text-xl font-bold text-white mb-3">
-                {(displayName || activeChatId).charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="text-center w-full space-y-1">
-              <div className="text-sm font-bold">{displayName}</div>
-              <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">Username</div>
-              <code className="text-xs font-mono text-brand-accent break-all block bg-black/20 px-2 py-1 rounded">
-                {activeChatId}
-              </code>
+          {/* Contact Profile Card */}
+          <div className="flex flex-col items-center p-5 rounded-2xl border border-brand-border bg-brand-glass mb-5">
+            <div className="relative mb-3">
+              {contactAvatar ? (
+                <img src={`data:image/png;base64,${contactAvatar}`} alt="" className="w-20 h-20 rounded-full border-2 border-brand-accent object-cover" />
+              ) : (
+                <div className="w-20 h-20 rounded-full border-2 border-brand-accent bg-brand-accent flex items-center justify-center text-2xl font-bold text-white">
+                  {(displayName || activeChatId).charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border-2 border-brand-surface ${isOnline ? 'status-online' : 'status-offline'}`} />
             </div>
-            {contactStatus ? (
-              <p className="text-xs text-brand-text-muted mt-2 text-center w-full truncate" title={contactStatus}>
-                {contactStatus}
-              </p>
-            ) : null}
+            <div className="text-center w-full space-y-1.5">
+              <div className="text-base font-bold">{displayName}</div>
+              <div className="text-xs text-brand-text-muted">@{activeChatId}</div>
+              {contactStatus && (
+                <p className="text-xs text-brand-text-muted italic truncate" title={contactStatus}>
+                  "{contactStatus}"
+                </p>
+              )}
+              <div className="encryption-badge mx-auto mt-2">
+                <Icons.Lock size={10} />
+                <span>E2E Encrypted</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Stats */}
+          <div className="shared-section">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
+                <div className="text-lg font-bold">{totalMessages}</div>
+                <div className="text-[10px] text-brand-text-muted">Messages</div>
+              </div>
+              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
+                <div className="text-lg font-bold">{sharedImages.length}</div>
+                <div className="text-[10px] text-brand-text-muted">Media</div>
+              </div>
+              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
+                <div className="text-lg font-bold flex items-center justify-center">
+                  <Icons.Lock size={16} className="text-green-500" />
+                </div>
+                <div className="text-[10px] text-brand-text-muted">Secured</div>
+              </div>
+            </div>
           </div>
 
           {/* Shared Media */}
+          {sharedImages.length > 0 && (
+            <div className="shared-section">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Shared Media</span>
+                <span className="text-[10px] text-brand-accent">{sharedImages.length} items</span>
+              </div>
+              <div className="shared-media-grid">
+                {sharedImages.slice(0, 8).map((m, i) => (
+                  <div key={i} className="shared-media-thumb">
+                    <img
+                      src={`data:${m.attachment?.mime || 'image/png'};base64,${m.attachment?.data}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Encryption Verification */}
           <div className="shared-section">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-semibold text-brand-text-muted">Shared Media</span>
-              <button className="text-[10px] text-brand-accent hover:underline">See All</button>
-            </div>
-            <div className="shared-media-grid">
-              {mediaThumbs.map((bg, i) => (
-                <div key={i} className="shared-media-thumb">
-                  <div style={{ width: '100%', height: '100%', background: bg }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Shared Files */}
-          <div className="shared-section">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-semibold text-brand-text-muted">Shared Files</span>
-              <button className="text-[10px] text-brand-accent hover:underline">See All</button>
-            </div>
-            <div className="space-y-1">
-              {[
-                { name: 'UARM.sketch', meta: '04.20.21 • 210ms', color: 'bg-red-500/15 text-red-400' },
-                { name: 'pathlock.sketch', meta: '04.20.21 • 150ms', color: 'bg-yellow-500/15 text-yellow-400' },
-                { name: 'pathlock_brandbook.pdf', meta: '04.20.21 • 20kb', color: 'bg-red-500/15 text-red-400' },
-              ].map((f) => (
-                <div key={f.name} className="flex items-center gap-2.5 py-1.5">
-                  <div className={`w-8 h-8 rounded-lg ${f.color} flex items-center justify-center shrink-0`}>
-                    <Icons.FileText size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{f.name}</div>
-                    <div className="text-[10px] text-brand-text-muted">{f.meta}</div>
-                  </div>
-                  <Icons.Download size={14} className="text-brand-text-muted hover:text-brand-text cursor-pointer shrink-0" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Shared Links */}
-          <div className="shared-section">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-semibold text-brand-text-muted">Shared Links</span>
-              <button className="text-[10px] text-brand-accent hover:underline">See All</button>
-            </div>
-            <div className="space-y-1">
-              {[
-                { title: 'Banking UI kit. Dark Mode.', url: 'https://dribbble.com/shots/15220669', bg: 'linear-gradient(135deg,#2d1b69,#1a1a2e)' },
-                { title: 'Credit Cards Experiments.', url: 'https://dribbble.com/shots/14539167', bg: 'linear-gradient(135deg,#1a3a2a,#0f2319)' },
-                { title: 'The Batman - DC FanDome Teaser...', url: 'https://www.youtube.com/watch?v=...', bg: 'linear-gradient(135deg,#1a2a3a,#0f1923)' },
-              ].map((l) => (
-                <div key={l.title} className="flex items-center gap-2.5 py-1.5">
-                  <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
-                    <div style={{ width: '100%', height: '100%', background: l.bg }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{l.title}</div>
-                    <div className="text-[10px] text-brand-accent truncate">{l.url}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Encryption Section */}
-      <div className={activeChatId ? 'shared-section' : ''}>
-        <h3 className="text-xs font-semibold mb-3">Encryption</h3>
-        <p className="text-[10px] text-brand-text-muted mb-3 leading-relaxed">
-          Your encryption key is created automatically when you sign in. Messages are end-to-end encrypted; only you and the recipient can read them.
-        </p>
-
-        {activeChatId ? (
-          <>
-            <div className="space-y-2.5 mb-3">
+            <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
+              <Icons.Lock size={12} className="text-green-500" />
+              Encryption Verification
+            </h3>
+            <p className="text-[10px] text-brand-text-muted mb-3 leading-relaxed">
+              Compare fingerprints with {displayName} in person or via a secure channel to verify their identity.
+            </p>
+            <div className="space-y-3">
               <div>
                 <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-1">Your fingerprint</div>
-                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2 py-1.5 rounded">
+                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2.5 py-2 rounded-lg leading-relaxed">
                   {myFingerprint || '—'}
                 </code>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-1">{activeChatId}'s fingerprint</div>
-                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2 py-1.5 rounded">
+                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-1">{displayName}'s fingerprint</div>
+                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2.5 py-2 rounded-lg leading-relaxed">
                   {theirFingerprint || '—'}
                 </code>
               </div>
             </div>
-            <p className="text-[10px] text-brand-text-muted leading-relaxed">
-              Compare fingerprints in person or over a secure channel to verify you're talking to the right person.
-            </p>
-          </>
-        ) : (
-          <p className="text-[10px] text-brand-text-muted">Select a chat to see contact profile and verification details.</p>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        /* No chat selected */
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-brand-glass border border-brand-border flex items-center justify-center mb-4">
+            <Icons.Lock size={24} className="text-brand-accent" />
+          </div>
+          <h3 className="text-sm font-semibold mb-2">End-to-End Encrypted</h3>
+          <p className="text-[11px] text-brand-text-muted leading-relaxed">
+            Select a chat to see contact details and encryption verification. Your keys are generated automatically on login.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

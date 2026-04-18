@@ -322,68 +322,67 @@ const MessageBubble: React.FC<{
   onReply?: () => void;
 }> = ({ message, isMe, myAvatar, theirAvatar, theirName, onReply }) => (
   <motion.div
-    initial={{ opacity: 0, y: 8 }}
+    initial={{ opacity: 0, y: 6 }}
     animate={{ opacity: 1, y: 0 }}
-    className={`flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+    transition={{ duration: 0.2 }}
+    className={`flex gap-3 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
   >
     <div className="shrink-0 mt-auto">
       {isMe ? (
         myAvatar ? (
-          <img src={`data:image/png;base64,${myAvatar}`} alt="" className="w-8 h-8 rounded-full border border-brand-border object-cover" />
+          <img src={`data:image/png;base64,${myAvatar}`} alt="" className="w-7 h-7 rounded-full border border-brand-border object-cover" />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-brand-accent border border-brand-border flex items-center justify-center text-white text-xs font-semibold">?</div>
+          <div className="w-7 h-7 rounded-full bg-brand-accent/80 flex items-center justify-center text-white text-[10px] font-semibold">You</div>
         )
       ) : (
         theirAvatar ? (
-          <img src={`data:image/png;base64,${theirAvatar}`} alt="" className="w-8 h-8 rounded-full border border-brand-border object-cover" />
+          <img src={`data:image/png;base64,${theirAvatar}`} alt="" className="w-7 h-7 rounded-full border border-brand-border object-cover" />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-brand-accent border border-brand-border flex items-center justify-center text-white text-xs font-semibold">
+          <div className="w-7 h-7 rounded-full bg-brand-accent/60 flex items-center justify-center text-white text-[10px] font-semibold">
             {theirName.charAt(0).toUpperCase()}
           </div>
         )
       )}
     </div>
-    <div className={`max-w-[70%] flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+    <div className={`max-w-[65%] flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
       {message.attachment?.data && (
         <div className="mb-1">
           {message.attachment.type === 'image' ? (
             <img
               src={`data:${message.attachment.mime || 'image/png'};base64,${message.attachment.data}`}
               alt={message.attachment.name || 'Image'}
-              className="max-h-48 rounded-xl object-contain border border-brand-border"
+              className="max-h-48 rounded-2xl object-contain border border-brand-border"
             />
           ) : (
             <a
               href={`data:application/octet-stream;base64,${message.attachment.data}`}
               download={message.attachment.name || 'file'}
-              className="text-xs text-brand-accent hover:underline"
+              className="text-xs text-brand-accent hover:underline inline-flex items-center gap-1"
             >
-              📎 {message.attachment.name || 'File'}
+              <Icons.FileText size={12} /> {message.attachment.name || 'File'}
             </a>
           )}
         </div>
       )}
-      <div
-        className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'message-bubble-own rounded-tr-none' : 'message-bubble-other rounded-tl-none'}`}
-      >
+      <div className={`px-4 py-2.5 text-[13px] leading-relaxed ${isMe ? 'message-bubble-own' : 'message-bubble-other'}`}>
         {message.replyTo?.text && (
-          <div className="text-xs opacity-90 border-l-2 border-white/50 pl-2 mb-1 truncate max-w-full">
+          <div className="text-[11px] opacity-80 border-l-2 border-white/40 pl-2 mb-1.5 truncate max-w-full">
             {(message.replyTo.text || '').slice(0, 80)}{message.replyTo.text.length > 80 ? '…' : ''}
           </div>
         )}
         {message.text || (message.attachment ? 'Attachment' : '')}
       </div>
-      <div className="flex items-center gap-2 mt-1 px-1">
-        <span className="text-[10px] text-brand-text-muted font-mono">{formatTime(message.at)}</span>
+      <div className="flex items-center gap-2 mt-0.5 px-1">
+        <span className="text-[10px] text-brand-text-muted/70 font-mono">{formatTime(message.at)}</span>
         {onReply && (
-          <button type="button" onClick={onReply} className="text-[10px] text-brand-accent hover:underline">
+          <button type="button" onClick={onReply} className="text-[10px] text-brand-accent/60 hover:text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity">
             Reply
           </button>
         )}
         {isMe && (
           <div className="flex gap-0.5">
-            <Icons.ChevronRight size={10} className="text-green-500" />
-            <Icons.ChevronRight size={10} className="text-green-500 -ml-1.5" />
+            <Icons.ChevronRight size={9} className="text-green-400/70" />
+            <Icons.ChevronRight size={9} className="text-green-400/70 -ml-1.5" />
           </div>
         )}
       </div>

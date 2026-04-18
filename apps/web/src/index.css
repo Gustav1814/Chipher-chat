@@ -27,31 +27,39 @@
 
 /* Dark Mode (Default) */
 :root {
-  --bg: #050505;
-  --surface: #121212;
-  --text: #FFFFFF;
-  --text-muted: #A1A1AA;
-  --accent-primary: #6366F1;
+  --bg: #07070a;
+  --surface: #0f0f14;
+  --surface-elevated: #16161d;
+  --text: #F1F1F4;
+  --text-muted: #8E8EA0;
+  --accent-primary: #7C3AED;
   --accent-secondary: #A855F7;
   --accent-tertiary: #EC4899;
   /* Glass recipe - dark */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --border: rgba(255, 255, 255, 0.08);
-  --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-strong: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glow-accent: rgba(124, 58, 237, 0.15);
 }
 
 /* Light Mode */
 .light {
-  --bg: #F0F4F8;
+  --bg: #F4F5F9;
   --surface: #FFFFFF;
-  --text: #1E293B;
-  --text-muted: #64748B;
-  --accent-primary: #F43F5E;
-  --accent-secondary: #F59E0B;
-  --accent-tertiary: #8B5CF6;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --border: rgba(99, 102, 241, 0.15);
-  --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+  --surface-elevated: #FAFBFF;
+  --text: #1A1A2E;
+  --text-muted: #6B7280;
+  --accent-primary: #7C3AED;
+  --accent-secondary: #A855F7;
+  --accent-tertiary: #EC4899;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  --border: rgba(124, 58, 237, 0.1);
+  --border-strong: rgba(124, 58, 237, 0.18);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.06);
+  --glow-accent: rgba(124, 58, 237, 0.08);
 }
 
 /* -----------------------------------------------------------------------------
@@ -60,41 +68,41 @@
 
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-glass);
 }
 
 .glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-glass), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--shadow-glass);
 }
 
 /* -----------------------------------------------------------------------------
-   3. COLORFUL GRADIENTS (3-stop)
+   3. GRADIENTS
    ----------------------------------------------------------------------------- */
 
 .bg-colorful-gradient {
-  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED 0%, #A855F7 50%, #EC4899 100%);
 }
 
 .light .bg-colorful-gradient {
-  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED 0%, #A855F7 50%, #EC4899 100%);
 }
 
 .gradient-text {
-  background: linear-gradient(90deg, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .light .gradient-text {
-  background: linear-gradient(90deg, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -111,18 +119,19 @@
 }
 
 /* -----------------------------------------------------------------------------
-   Component overrides using design tokens
+   4. COMPONENT STYLES
    ----------------------------------------------------------------------------- */
 
+/* --- Chat list item (selected) --- */
 .chat-list-item-selected {
-  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
   border-color: transparent;
   color: white;
-  box-shadow: 0 4px 24px -4px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px -4px rgba(124, 58, 237, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .light .chat-list-item-selected {
-  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
 }
 
 .chat-list-item-selected h3 {
@@ -131,7 +140,7 @@
 
 .chat-list-item-selected .text-brand-text-muted,
 .chat-list-item-selected p {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .chat-list-item-selected .chat-read-chevrons {
@@ -139,63 +148,115 @@
 }
 
 .chat-list-item-selected .chat-avatar-placeholder {
-  background: rgba(0, 0, 0, 0.25);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
+/* --- Navigation --- */
 .nav-item-active {
-  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
   color: white;
-  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 16px -4px rgba(124, 58, 237, 0.5);
 }
 
 .light .nav-item-active {
-  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
 }
 
+/* --- Send button --- */
 .btn-send-gradient {
-  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
   color: white;
-  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 4px 16px -4px rgba(124, 58, 237, 0.45);
+  transition: all 0.2s ease;
+}
+
+.btn-send-gradient:hover:not(:disabled) {
+  box-shadow: 0 6px 24px -4px rgba(124, 58, 237, 0.6);
 }
 
 .light .btn-send-gradient {
-  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
 }
 
+/* --- Message Bubbles --- */
 .message-bubble-own {
-  background: linear-gradient(to bottom right, #6366F1, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
   color: white;
-  box-shadow: 0 4px 20px -4px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 2px 12px -2px rgba(124, 58, 237, 0.3);
+  border-radius: 20px 20px 4px 20px;
 }
 
 .light .message-bubble-own {
-  background: linear-gradient(to bottom right, #F43F5E, #F59E0B, #8B5CF6);
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
 }
 
 .message-bubble-other {
-  background: var(--glass-bg);
+  background: var(--glass-bg-strong);
   border: 1px solid var(--border);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px 20px 20px 4px;
 }
 
 .light .message-bubble-other {
   color: var(--text);
+  background: var(--glass-bg-strong);
 }
 
+/* --- Light mode sidebar --- */
 .light .sidebar-light-tint {
   background: var(--surface);
   border-color: var(--border);
 }
 
-/* Chat window background: base + optional ambient is in App */
+/* --- Chat window background --- */
 .chat-window-theme {
   background: var(--bg);
 }
 
+/* --- Story Ring (avatars at top of chat list) --- */
+.story-ring {
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
+}
+
+.story-ring-inner {
+  border-radius: 50%;
+  padding: 2px;
+  background: var(--surface);
+}
+
 /* -----------------------------------------------------------------------------
-   5. TYPOGRAPHY — use brand text classes
+   5. RIGHT PANEL — Shared sections
+   ----------------------------------------------------------------------------- */
+
+.shared-section {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+
+.shared-section:first-of-type {
+  border-top: none;
+}
+
+.shared-media-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.shared-media-thumb {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--border);
+}
+
+/* -----------------------------------------------------------------------------
+   6. TYPOGRAPHY
    ----------------------------------------------------------------------------- */
 
 @layer base {
@@ -205,7 +266,7 @@
 }
 
 /* -----------------------------------------------------------------------------
-   6. SCROLLBARS — 4px, transparent until hover
+   7. SCROLLBARS
    ----------------------------------------------------------------------------- */
 
 ::-webkit-scrollbar {
@@ -235,7 +296,10 @@
   scrollbar-width: none;
 }
 
-/* Secure connection indicator dots */
+/* -----------------------------------------------------------------------------
+   8. SECURE CONNECTION INDICATOR
+   ----------------------------------------------------------------------------- */
+
 .secure-dot {
   width: 4px;
   height: 4px;
@@ -252,13 +316,48 @@
 }
 
 /* -----------------------------------------------------------------------------
-   UTILITIES
+   9. UTILITIES
    ----------------------------------------------------------------------------- */
 
 .shadow-glow {
-  box-shadow: 0 0 24px -4px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 20px -4px rgba(124, 58, 237, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .light .shadow-glow {
-  box-shadow: 0 0 24px -4px rgba(244, 63, 94, 0.25);
+  box-shadow: 0 0 20px -4px rgba(124, 58, 237, 0.15);
+}
+
+/* Subtle hover for list items */
+@layer utilities {
+  .hover-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Encryption badge */
+.encryption-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+/* Status indicators */
+.status-online {
+  background: #10B981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.status-offline {
+  background: #6B7280;
 }

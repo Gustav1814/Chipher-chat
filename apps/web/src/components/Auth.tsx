@@ -72,7 +72,10 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <div className="glass rounded-[32px] p-10 shadow-2xl shadow-black/20">
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-brand-text mb-2">{isLogin ? 'Sign In' : 'Create Account'}</h2>
+              <div className="flex items-center gap-2 mb-2">
+                <Icons.Lock size={20} className="text-brand-accent" />
+                <h2 className="text-2xl font-bold text-brand-text">{isLogin ? 'Sign In' : 'Create Account'}</h2>
+              </div>
               <p className="text-sm text-brand-text-muted">{isLogin ? 'Enter your credentials to continue' : 'Join the secure network today'}</p>
             </div>
 
@@ -108,7 +111,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-text-muted hover:text-brand-text"
                   >
-                    {showPassword ? <Icons.Sun size={18} /> : <Icons.Moon size={18} />}
+                    {showPassword ? '👁' : '👁‍🗨'}
                   </button>
                 </div>
               </div>
