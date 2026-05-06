@@ -2,13 +2,15 @@
   "name": "cipherchat-monorepo",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0 <22.0.0"
   },
   "description": "Root scripts for local production builds (Railway uses railway.toml).",
   "scripts": {
+    "build": "npm run render:build",
     "build:web": "npm --prefix apps/web install && npm --prefix apps/web run build",
     "stage:client": "node scripts/stage-client.mjs",
     "build:production": "npm run build:web && npm run stage:client",
+    "start": "npm run start:server",
     "start:server": "npm --prefix apps/server start",
     "render:build": "npm ci --prefix apps/web && npm run build --prefix apps/web && node scripts/stage-client.mjs && npm ci --prefix apps/server"
   }
