@@ -1,0 +1,3 @@
+# Pin Node for Vite 6 + Tailwind 4 / lightningcss on Railway (Nixpacks).
+[variables]
+NIXPACKS_NODE_VERSION = "20"

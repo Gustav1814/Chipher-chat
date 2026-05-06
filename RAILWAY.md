@@ -31,6 +31,8 @@ railway up
 
 ## Troubleshooting
 
-- **Build fails on `better-sqlite3`:** Railway’s Nixpacks image should compile native addons; if it fails, check the build logs for Node version and open an issue with the log snippet.
-- **Blank page:** Confirm the build step copied `apps/web/dist` into `apps/server/client` (see `railway.toml` `buildCommand`).
-- **Sockets / CORS:** Same-origin deploy uses host-matched origins automatically. Split deploys **must** set `CORS_ORIGIN` to the exact frontend origin(s). Do not rely on `*` with credentials — the server avoids that pattern.
+- **Vite build fails at `bundleAndLoadConfigFile`:** The repo pins Node **20** via root `nixpacks.toml` (`NIXPACKS_NODE_VERSION`). `vite.config.ts` uses `import.meta.url` for `__dirname` so the config loads correctly under ESM on Linux.
+- **Docker log `UndefinedVar: $NIXPACKS_PATH`:** Harmless BuildKit noise from the builder; it does not stop the build if the Nixpacks steps complete.
+- **Build fails on `better-sqlite3`:** Nixpacks should compile native addons on Node 20; check full deploy logs for compile errors.
+- **Blank page:** Confirm the build copied `apps/web/dist` → `apps/server/client` (see `railway.toml` `buildCommand`).
+- **Sockets / CORS:** Same-origin deploy uses host-matched origins. Split deploys need `CORS_ORIGIN` set to the exact frontend origin(s).

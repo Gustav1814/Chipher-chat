@@ -1,6 +1,9 @@
 {
   "name": "cipherchat-monorepo",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "description": "Root scripts for local production builds (Railway uses railway.toml).",
   "scripts": {
     "build:web": "npm --prefix apps/web install && npm --prefix apps/web run build",
