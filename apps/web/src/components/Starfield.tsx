@@ -31,7 +31,7 @@ export const Starfield: React.FC = () => {
     }
 
     const draw = () => {
-      ctx.fillStyle = 'black';
+      ctx.fillStyle = '#030304';
       ctx.fillRect(0, 0, w, h);
       ctx.save();
       ctx.translate(w / 2, h / 2);
@@ -48,7 +48,8 @@ export const Starfield: React.FC = () => {
         const size = (1 - star.z / w) * 3;
         const opacity = (1 - star.z / w) * star.o;
         ctx.beginPath();
-        ctx.fillStyle = i % 5 === 0 ? `rgba(168, 85, 247, ${opacity})` : `rgba(255, 255, 255, ${opacity})`;
+        ctx.fillStyle =
+          i % 6 === 0 ? `rgba(56, 189, 248, ${opacity * 0.55})` : `rgba(200, 210, 220, ${opacity * 0.42})`;
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
       }

@@ -1,5 +1,8 @@
 node_modules/
 dist/
+
+# Local / internal docs (not published to remote)
+docs/
 .env
 .env.local
 .env.*.local

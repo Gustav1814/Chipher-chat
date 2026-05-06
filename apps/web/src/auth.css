@@ -1,0 +1,144 @@
+/* =============================================================================
+   Auth / login shell — Nova slate + cyan (isolated from main app design tokens)
+   Only elements inside .auth-root should use these classes or --auth-* variables.
+   ============================================================================= */
+
+.auth-root {
+  --auth-bg: #030304;
+  --auth-text: #e8eaef;
+  --auth-text-muted: #7c8494;
+  --auth-accent: #22d3ee;
+  --auth-accent-mid: #0ea5e9;
+  --auth-accent-deep: #2563eb;
+  --auth-ice: #7dd3fc;
+  --auth-panel-bg: rgba(4, 5, 8, 0.92);
+  --auth-panel-border: rgba(56, 189, 248, 0.14);
+  --auth-input-bg: rgba(0, 0, 0, 0.55);
+  --auth-input-border: rgba(55, 65, 85, 0.55);
+  --auth-divider: rgba(40, 48, 64, 0.7);
+  --auth-shadow:
+    0 28px 64px -16px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 0 48px -24px rgba(14, 165, 233, 0.12);
+
+  background-color: var(--auth-bg);
+  color: var(--auth-text);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  isolation: isolate;
+}
+
+.auth-glass-card {
+  background: linear-gradient(165deg, rgba(8, 10, 14, 0.97) 0%, rgba(2, 3, 6, 0.94) 100%);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid var(--auth-panel-border);
+  box-shadow: var(--auth-shadow);
+}
+
+.auth-gradient-heading {
+  background: linear-gradient(105deg, var(--auth-accent-deep) 0%, var(--auth-accent-mid) 38%, var(--auth-accent) 72%, var(--auth-ice) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 24px rgba(14, 165, 233, 0.25));
+}
+
+.auth-btn-submit {
+  display: block;
+  width: 100%;
+  background: linear-gradient(105deg, #1e40af 0%, var(--auth-accent-deep) 28%, var(--auth-accent-mid) 55%, var(--auth-accent) 100%);
+  color: #fff;
+  font-weight: 700;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow:
+    0 20px 44px -18px rgba(0, 0, 0, 0.75),
+    0 12px 36px -12px rgba(14, 165, 233, 0.35);
+  transition:
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease;
+}
+
+.auth-btn-submit:hover:not(:disabled) {
+  box-shadow:
+    0 22px 48px -16px rgba(0, 0, 0, 0.8),
+    0 14px 40px -10px rgba(34, 211, 238, 0.4);
+}
+
+.auth-btn-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--auth-input-bg);
+  border: 1px solid var(--auth-input-border);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  color: var(--auth-text);
+  font-size: 1rem;
+  transition: border-color 0.18s ease;
+}
+
+.auth-input::placeholder {
+  color: var(--auth-text-muted);
+  opacity: 0.85;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--auth-accent-mid);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.25);
+}
+
+.auth-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--auth-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.auth-text-muted {
+  color: var(--auth-text-muted);
+}
+
+.auth-icon-accent {
+  color: var(--auth-accent);
+}
+
+.auth-link {
+  color: var(--auth-accent);
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-divider-line {
+  border-color: var(--auth-divider);
+}
+
+.auth-eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  color: var(--auth-text-muted);
+}
+
+/* Sit above the divider line like the original “or” chip */
+.auth-or-pill {
+  background: var(--auth-bg);
+}

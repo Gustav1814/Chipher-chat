@@ -1,60 +1,70 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Icons } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Logo } from './Logo';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
-  onToggleTheme: () => void;
-  isDarkMode: boolean;
+  onProfileClick?: () => void;
+  unreadChats?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onToggleTheme, isDarkMode }) => {
-  const { logout } = useAuth();
-  const navItems = [
-    { id: 'chats', icon: Icons.MessageSquare, label: 'Chats' },
-    { id: 'contacts', icon: Icons.Users, label: 'Contacts' },
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onProfileClick, unreadChats = 0 }) => {
+  const { username, myDisplayName, userAvatars } = useAuth();
+  const navItems: { id: string; icon: typeof Icons.MessageSquare; label: string; disabled?: boolean }[] = [
+    { id: 'chats', icon: Icons.MessageSquare, label: 'Messages' },
+    { id: 'calls', icon: Icons.Phone, label: 'Calls', disabled: true },
+    { id: 'contacts', icon: Icons.Users, label: 'People' },
     { id: 'settings', icon: Icons.Settings, label: 'Settings' },
   ];
 
+  const initials = (myDisplayName || username || '?')
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <div className={`w-20 h-full flex flex-col items-center py-8 border-r border-brand-border glass-panel ${!isDarkMode ? 'sidebar-light-tint' : ''}`}>
-      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex flex-col items-center gap-1 mb-12 cursor-pointer" title="Secure Chat">
-        <Logo size={32} animated={false} />
-        <span className="text-[10px] font-semibold text-brand-text-muted truncate w-full text-center font-sans">Secure Chat</span>
-      </motion.div>
+    <div className="cipher-rail">
+      <button type="button" className="cipher-rail-logo" title="Cipher" aria-label="Cipher home">
+        <Icons.Layers size={20} strokeWidth={2.2} className="text-white" />
+      </button>
 
-      <div className="flex-1 flex flex-col gap-8">
-        {navItems.map((item) => (
-          <motion.div
-            key={item.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onTabChange(item.id)}
-            className={`p-3 rounded-xl cursor-pointer transition-colors ${
-              activeTab === item.id ? 'nav-item-active' : 'text-brand-text-muted hover:text-brand-text'
-            }`}
-          >
-            <item.icon size={24} />
-          </motion.div>
-        ))}
+      <div className="flex-1 flex flex-col gap-0.5 w-full items-center">
+        {navItems.map((item) => {
+          const on = activeTab === item.id;
+          const disabled = !!item.disabled;
+          const showBadge = item.id === 'chats' && unreadChats > 0;
+          return (
+            <div key={item.id} className={`cipher-rail-nav-wrap relative w-full flex justify-center ${on && !disabled ? 'on' : ''}`}>
+              <button
+                type="button"
+                title={item.label}
+                disabled={disabled}
+                onClick={() => !disabled && onTabChange(item.id)}
+                className={`cipher-rail-nav ${on && !disabled ? 'on' : ''}`}
+              >
+                <item.icon size={20} strokeWidth={1.55} />
+              </button>
+              {item.id === 'chats' && showBadge && (
+                <span className="cipher-rail-badge" aria-label={`${unreadChats} unread`}>
+                  {unreadChats > 9 ? '9+' : unreadChats}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="flex flex-col gap-6 mt-auto">
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onToggleTheme}
-          className="text-brand-text-muted hover:text-brand-text cursor-pointer"
-        >
-          {isDarkMode ? <Icons.Sun size={24} /> : <Icons.Moon size={24} />}
-        </motion.div>
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={logout} className="text-brand-text-muted hover:text-brand-text cursor-pointer" title="Log out">
-          <Icons.LogOut size={24} />
-        </motion.div>
-      </div>
+      <button type="button" className="cipher-rail-avatar" onClick={() => onProfileClick?.()} title="Profile">
+        {userAvatars[username || ''] ? (
+          <img src={`data:image/png;base64,${userAvatars[username || '']}`} alt="" className="w-full h-full object-cover rounded-full" />
+        ) : (
+          initials
+        )}
+        <span className="cipher-rail-avatar-dot" />
+      </button>
     </div>
   );
 };

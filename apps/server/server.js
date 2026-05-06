@@ -12,19 +12,54 @@ const db = require('./db');
 const app = express();
 app.set('trust proxy', 1);
 
-// CORS: allow localhost (any port) in dev so frontend can call API when using VITE_API_URL
+// CORS: never combine Access-Control-Allow-Origin: * with Allow-Credentials: true (browsers reject it).
+// - Dev: any localhost / 127.0.0.1 origin (Vite on :3000, API on :3080).
+// - Prod + CORS_ORIGIN: comma-separated exact origins (split frontend + API).
+// - Prod without CORS_ORIGIN: same-origin monolith — echo Origin only if it matches Host / X-Forwarded-Host.
 const isProd = process.env.NODE_ENV === 'production';
-const corsOrigin = process.env.CORS_ORIGIN || (isProd ? '*' : null);
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (corsOrigin === '*') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  } else if (origin && (/^https?:\/\/localhost(:\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (corsOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+const prodCorsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function isDevLocalhostOrigin(origin) {
+  if (!origin) return false;
+  return (
+    /^https?:\/\/localhost(:\d+)?$/i.test(origin) ||
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin)
+  );
+}
+
+function originMatchesDeploymentHost(origin, req) {
+  try {
+    const oHost = new URL(origin).host.toLowerCase();
+    const raw = (req.headers['x-forwarded-host'] || req.headers.host || '').toString();
+    const reqHost = raw.split(',')[0].trim().toLowerCase();
+    if (!reqHost || !oHost) return false;
+    return oHost === reqHost;
+  } catch {
+    return false;
   }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+}
+
+function corsAllowOrigin(req) {
+  const origin = req.headers.origin;
+  if (!origin) return null;
+  if (!isProd) {
+    return isDevLocalhostOrigin(origin) ? origin : null;
+  }
+  if (prodCorsOrigins.length) {
+    return prodCorsOrigins.includes(origin) ? origin : null;
+  }
+  return originMatchesDeploymentHost(origin, req) ? origin : null;
+}
+
+app.use((req, res, next) => {
+  const allow = corsAllowOrigin(req);
+  if (allow) {
+    res.setHeader('Access-Control-Allow-Origin', allow);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -33,9 +68,16 @@ app.use((req, res, next) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: corsOrigin
-    ? { origin: corsOrigin === '*' ? true : corsOrigin.split(','), credentials: true }
-    : { origin: (o, cb) => cb(null, !o || /^https?:\/\/localhost(:\d+)?$/.test(o) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(o)), credentials: true },
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin || '';
+    if (!origin) return callback(null, true);
+    let ok = false;
+    if (!isProd) ok = isDevLocalhostOrigin(origin);
+    else if (prodCorsOrigins.length) ok = prodCorsOrigins.includes(origin);
+    else ok = originMatchesDeploymentHost(origin, req);
+    callback(null, ok);
+  },
+  cors: { origin: true, credentials: true },
   pingTimeout: 60000,
   pingInterval: 25000,
 });

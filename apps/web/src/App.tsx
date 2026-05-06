@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { ChatList } from './components/ChatList';
 import { ChatWindow } from './components/ChatWindow';
@@ -7,77 +7,119 @@ import { RightPanel } from './components/RightPanel';
 import { Auth } from './components/Auth';
 import { Contacts } from './components/Contacts';
 import { SettingsPage } from './components/SettingsPage';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, type ChatMessage } from './context/AuthContext';
+import { CipherAmbient } from './components/CipherAmbient';
+import { IrisGradientDefs } from './components/IrisGradientDefs';
 
-const THEME_STORAGE_KEY = 'cipherchatTheme';
+const panelStagger = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
 
 function AppContent() {
-  const { username } = useAuth();
+  const { username, messageHistory, token, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('chats');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    try {
-      return (localStorage.getItem(THEME_STORAGE_KEY) || 'dark') !== 'light';
-    } catch {
-      return true;
+
+  const railUnread = useMemo(() => {
+    let n = 0;
+    for (const conv of Object.values(messageHistory) as ChatMessage[][]) {
+      for (let i = conv.length - 1; i >= 0; i--) {
+        if (conv[i].own) break;
+        n++;
+      }
     }
-  });
+    return n;
+  }, [messageHistory]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('light', !isDarkMode);
-  }, [isDarkMode]);
-
-  const setTheme = (theme: 'dark' | 'light') => {
-    const isDark = theme === 'dark';
-    setIsDarkMode(isDark);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch (_) {}
-    document.documentElement.classList.toggle('light', !isDark);
-  };
-
-  const toggleTheme = () => setTheme(isDarkMode ? 'light' : 'dark');
+  if (loading && token && !username) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[var(--void)] text-[var(--tx2)] text-[13px] font-[family-name:var(--font-sans)] font-light">
+        Restoring session…
+      </div>
+    );
+  }
 
   if (!username) {
     return <Auth onLogin={() => {}} />;
   }
 
   return (
-    <div className={`flex h-screen w-full bg-brand-bg overflow-hidden select-none relative ${!isDarkMode ? 'light' : ''}`}>
-      {/* Ambient glow orbs — primary and secondary accent corners */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
-        <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-purple-500/20 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[40%] h-[40%] bg-pink-500/20 blur-[120px] rounded-full" />
-      </div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-        className="flex w-full h-full relative z-10"
-        style={{ perspective: '1000px' }}
-      >
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onToggleTheme={toggleTheme} isDarkMode={isDarkMode} />
-        {activeTab === 'chats' && (
-          <ChatList activeChatId={activeChatId} onChatSelect={setActiveChatId} />
-        )}
-        {activeTab === 'contacts' && <Contacts onSelectUser={setActiveChatId} />}
-        {activeTab === 'settings' && <SettingsPage isDarkMode={isDarkMode} onThemeSelect={setTheme} />}
-        <ChatWindow activeChatId={activeChatId} onTogglePanel={() => setIsRightPanelOpen((o) => !o)} />
-        <AnimatePresence>
+    <>
+      <IrisGradientDefs />
+      <div className="flex h-screen w-screen min-w-[1024px] overflow-hidden select-none relative bg-[var(--void)] text-[var(--tx1)]">
+        <CipherAmbient />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="flex w-full h-full relative z-10"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...panelStagger, delay: 0 }}
+            className="shrink-0"
+          >
+            <Sidebar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onProfileClick={() => setActiveTab('settings')}
+              unreadChats={railUnread}
+            />
+          </motion.div>
+          {activeTab === 'chats' && (
+            <motion.div
+              key="chats-list"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...panelStagger, delay: 0.05 }}
+              className="shrink-0"
+            >
+              <ChatList activeChatId={activeChatId} onChatSelect={setActiveChatId} onComposeNew={() => setActiveTab('contacts')} />
+            </motion.div>
+          )}
+          {activeTab === 'contacts' && (
+            <motion.div
+              key="contacts"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...panelStagger, delay: 0.05 }}
+              className="shrink-0"
+            >
+              <Contacts onSelectUser={setActiveChatId} />
+            </motion.div>
+          )}
+          {activeTab === 'settings' && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...panelStagger, delay: 0.05 }}
+              className="shrink-0"
+            >
+              <SettingsPage />
+            </motion.div>
+          )}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...panelStagger, delay: 0.1 }}
+            className="flex-1 min-w-0 flex"
+          >
+            <ChatWindow activeChatId={activeChatId} onTogglePanel={() => setIsRightPanelOpen((o) => !o)} />
+          </motion.div>
           {isRightPanelOpen && (
             <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="shrink-0 w-[280px]"
             >
               <RightPanel activeChatId={activeChatId} />
             </motion.div>
           )}
-        </AnimatePresence>
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
+    </>
   );
 }
 

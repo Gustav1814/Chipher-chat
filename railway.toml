@@ -1,0 +1,12 @@
+# Railway deploy (repo root). Build: web → static files into apps/server/client → server deps.
+# In Railway: add a volume (e.g. mount /data) and set DB_PATH=/data/chat.db so SQLite survives redeploys.
+
+[build]
+builder = "nixpacks"
+buildCommand = "cd apps/web && npm ci && npm run build && mkdir -p ../server/client && cp -r dist/. ../server/client/ && cd ../server && npm ci"
+
+[deploy]
+startCommand = "cd apps/server && npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"

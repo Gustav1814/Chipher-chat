@@ -4,15 +4,34 @@
  */
 
 const BASE = import.meta.env.VITE_API_URL || '';
+const TOKEN_STORAGE_KEY = 'cipherchat_auth_token';
 
-let token: string | null = null;
+function readStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+let token: string | null = readStoredToken();
 
 export function getToken(): string | null {
+  if (token != null) return token;
+  token = readStoredToken();
   return token;
 }
 
 export function setToken(t: string | null) {
   token = t;
+  if (typeof window === 'undefined') return;
+  try {
+    if (t) localStorage.setItem(TOKEN_STORAGE_KEY, t);
+    else localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    /* quota / private mode */
+  }
 }
 
 export async function api<T = unknown>(

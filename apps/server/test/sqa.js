@@ -338,12 +338,24 @@ describe('SQA: Secure Chat Application', { concurrency: 1 }, () => {
     });
   });
 
-  describe('7. Root (API-only)', () => {
-    test('GET / returns 404 when no static client is deployed', async () => {
+  describe('7. Root (static vs API-only)', () => {
+    test('GET / serves SPA when client/ exists, otherwise API-only message', async () => {
+      const path = require('path');
+      const fs = require('fs');
+      const indexPath = path.join(__dirname, '..', 'client', 'index.html');
+      const hasClient = fs.existsSync(indexPath);
       const res = await fetch(BASE_URL + '/');
-      assert.strictEqual(res.status, 404);
       const text = await res.text();
-      assert.ok(text.includes('Secure Chat') || text.includes('API'));
+      if (hasClient) {
+        assert.strictEqual(res.status, 200);
+        assert.ok(
+          text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('root'),
+          'expected HTML shell from Vite build',
+        );
+      } else {
+        assert.strictEqual(res.status, 404);
+        assert.ok(text.includes('Secure Chat') || text.includes('API'));
+      }
     });
   });
 });

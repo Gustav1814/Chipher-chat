@@ -1,102 +1,94 @@
-# CipherChat: Secure E2E Messaging
+<div align="center">
 
-CipherChat is a full-stack, real-time messaging application that prioritizes privacy. It implements strict End-to-End (E2E) encryption in the browser using the Web Crypto API, meaning the backend server only ever handles encrypted ciphertext. 
+# CipherChat
 
-The application features a modern, ultra-refined dark theme with glassmorphism UI principles, built using React 19 and Tailwind CSS.
+**Privacy-first, end-to-end encrypted messaging** — cryptography runs entirely in the browser; the server only ever relays ciphertext.
 
-## Features
+[![Node](https://img.shields.io/badge/node-%3E%3D18-339933?style=flat-square&logo=nodedotjs)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-### 🔒 Security & Privacy
-- **True End-to-End Encryption**: powered by the native `Web Crypto API` (ECDH P-256 for key agreement, AES-256-GCM for message encryption).
-- **Forward Secrecy**: A new ephemeral ECDH key pair is generated for every single message.
-- **Key Verification**: Cryptographic fingerprinting allows you to verify contacts out-of-band to prevent MITM attacks.
-- **Replay Protection**: Cryptographically robust unique message identifiers.
-- **Zero-Knowledge Backend**: Passwords are bcrypt-hashed, private keys never leave the local device, and the server cannot decrypt messages.
+</div>
 
-### 💬 Real-Time Messaging & UI
-- **Real-Time Data**: Instant message delivery and delivery status indicators powered by `Socket.IO`.
-- **Friends & Discovery**: Integrated user discovery and friend request system.
-- **Rich Media**: Support for secure end-to-end encrypted image and file attachments.
-- **Modern UI**: Stunning glassmorphism interface, custom scrollbars, gradient text accents, and polished CSS animations.
+---
 
-## Tech Stack
+## Highlights
 
-**Frontend (`apps/web`)**
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- Socket.IO-client
-- Web Crypto API (Native browser cryptography)
-- IndexedDB (Local chat history)
+| | |
+| :--- | :--- |
+| **Zero-knowledge server** | Passwords hashed with bcrypt; message bodies are opaque ciphertext. |
+| **Web Crypto E2E** | ECDH P-256 key agreement, AES-256-GCM, per-message ephemeral keys (forward secrecy). |
+| **Real-time** | Socket.IO for live delivery, typing, and presence. |
+| **Modern UI** | Dark glass aesthetic, refined motion, emoji composer, team-aware accents. |
+| **Session persistence** | Auth token + encryption keys stored locally so **reload keeps you signed in**; **logout clears** server session and local keys. |
+| **Profile photos** | Avatars load from the API after login and session restore so your **PFP stays consistent** across sign-in. |
 
-**Backend (`apps/server`)**
-- Node.js
-- Express
-- Socket.IO
-- better-sqlite3 (Persistent database)
-- bcrypt (Password hashing)
-- helmet-like security middleware
+---
 
-## Project Structure
-
-This repository is configured as a monorepo containing both the frontend and backend applications:
+## Architecture
 
 ```text
-├── apps/
-│   ├── web/        # React frontend application
-│   └── server/     # Node.js + Express + Socket.IO backend
-├── docs/           # Specifications and project proposals
-└── README.md       # Project documentation
+apps/
+├── web/      # React 19 · Vite · Tailwind — Web Crypto + IndexedDB (history + session keys)
+└── server/   # Express · Socket.IO · better-sqlite3 — users, friends, key directory, relay
 ```
 
-## Getting Started
+---
 
-### Prerequisites
-- Node.js v18 or higher
-- npm or yarn
+## Quick start (development)
 
-### 1. Setup the Backend
-The backend requires no external services to run, as it utilizes a local SQLite database that is automatically generated.
+**Backend** (pick a port that is not your Vite port):
 
 ```bash
 cd apps/server
 npm install
-
-# Start the server (default port is 3000, but we suggest 3080 to avoid Vite conflicts)
 PORT=3080 npm start
 ```
 
-### 2. Setup the Frontend
-In a new terminal window, initialize and start the frontend application.
+**Frontend**:
 
 ```bash
 cd apps/web
 npm install
-
-# Tell Vite to proxy API requests to our backend running on 3080
 VITE_API_URL=http://localhost:3080 npm run dev
 ```
 
-The application will be accessible at `http://localhost:3000`. 
-*Note: End-to-End encryption relies on the Web Crypto API, which requires a secure context. It will function correctly on `http://localhost`, but production deployments MUST use HTTPS.*
+Open the Vite URL (e.g. `http://localhost:3000`). Web Crypto requires a **secure context** — `localhost` is allowed; **production must use HTTPS**.
 
-## Deployment
+---
 
-The application is configured to support "Same-Origin Deployment" for maximum simplicity and zero CORS issues. 
+## Production build (same origin)
 
-1. **Build the frontend**:
-   ```bash
-   cd apps/web
-   npm run build
-   ```
-2. **Move build to server**:
-   Copy the contents of `apps/web/dist` directly into `apps/server/client`.
-3. **Deploy the backend**:
-   Deploy the `apps/server` directory to any Node.js hosting provider (Railway, Render, Fly.io, Heroku, etc.). The server is configured to automatically serve the static React files from the `client` directory alongside the API and WebSocket connections.
+From the **repository root**:
 
-See `apps/server/DEPLOY.md` for specific platform instructions.
+```bash
+npm install
+npm run build:production
+cd apps/server && npm install && NODE_ENV=production npm start
+```
 
-## Documentation
+This builds the SPA, copies `apps/web/dist` → `apps/server/client`, and serves UI + `/api` + `/socket.io` from one process.
 
-For an in-depth explanation of the cryptographic protocols and security guarantees implemented in this codebase, refer to:`apps/server/SECURITY.md`.
+**Checklist:** `NODE_ENV=production`, platform-managed `PORT`, persistent **`DB_PATH`** for SQLite (volume/disk), HTTPS at the edge. Split UI/API hosts need **`CORS_ORIGIN`** on the server and **`VITE_API_URL`** at build time for the web app. See `apps/server/DEPLOY.md` and `RAILWAY.md`.
+
+---
+
+## Security notes
+
+- Verify contact fingerprints out-of-band when threat models require it — see `apps/server/SECURITY.md`.
+- Session keys live in **IndexedDB** on the device so reload does not break E2E; treat the device as trusted for key material.
+- Explicit **logout** invalidates the server token and wipes local session storage.
+
+---
+
+## Repository
+
+Public mirror: [github.com/Gustav1814/Chipher-chat](https://github.com/Gustav1814/Chipher-chat)
+
+---
+
+<div align="center">
+
+**Made by Zeerak**
+
+</div>

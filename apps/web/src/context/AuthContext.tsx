@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { api, setToken, getToken, getMe, updateMeProfile, type User } from '../api';
 import { CryptoUtils } from '../cryptoUtils';
 import * as idb from '../idb';
+import { saveKeySession, loadKeySession, clearKeySession } from '../idbSession';
 
 export interface ChatMessage {
   text: string;
@@ -36,7 +37,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string, confirmPassword: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loadUsers: () => Promise<void>;
   getRelationship: (username: string) => 'friend' | 'pending_sent' | 'pending_received' | 'none';
   sendFriendRequest: (toUsername: string) => Promise<void>;
@@ -46,6 +47,7 @@ interface AuthContextValue extends AuthState {
   sendMessage: (toUsername: string, text: string, attachment?: ChatMessage['attachment'], replyTo?: { id: string; text: string }) => Promise<void>;
   appendMessage: (remoteUsername: string, payload: { text: string; attachment?: ChatMessage['attachment']; replyTo?: { id: string; text: string } }, at: number, own: boolean) => void;
   mergeHistoryFromIDB: (remoteUsername: string) => Promise<void>;
+  clearConversation: (remoteUsername: string) => Promise<void>;
   emitTyping: (toUsername: string, typing: boolean) => void;
   updateMyProfile: (displayName?: string, status?: string) => Promise<void>;
   refreshMyAvatar: () => Promise<void>;
@@ -57,25 +59,28 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const receivedIds = new Set<string>();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    token: getToken(),
-    username: null,
-    myDisplayName: null,
-    myStatus: null,
-    users: [],
-    userAvatars: {},
-    messageHistory: {},
-    remotePublicKeys: {},
-    keyPair: null,
-    publicKeyBase64: null,
-    myFingerprint: null,
-    remoteFingerprints: {},
-    sharedKeys: {},
-    socket: null,
-    onlineUsers: new Set<string>(),
-    typingFrom: null,
-    loading: false,
-    error: null,
+  const [state, setState] = useState<AuthState>(() => {
+    const t = getToken();
+    return {
+      token: t,
+      username: null,
+      myDisplayName: null,
+      myStatus: null,
+      users: [],
+      userAvatars: {},
+      messageHistory: {},
+      remotePublicKeys: {},
+      keyPair: null,
+      publicKeyBase64: null,
+      myFingerprint: null,
+      remoteFingerprints: {},
+      sharedKeys: {},
+      socket: null,
+      onlineUsers: new Set<string>(),
+      typingFrom: null,
+      loading: !!t,
+      error: null,
+    };
   });
 
   const loadUsers = useCallback(async () => {
@@ -113,15 +118,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const socket = io(import.meta.env.VITE_API_URL || '', { path: '/socket.io', transports: ['websocket', 'polling'] });
+      await saveKeySession(res.username, pair);
+
+      const socketOrigin = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+      const socket = io(socketOrigin, { path: '/socket.io', transports: ['websocket', 'polling'] });
 
       socket.on('connect', () => socket.emit('auth', { token: res.token, publicKey: publicKeyBase64 }));
       socket.on('auth_fail', () => setState((s) => ({ ...s, error: 'Authentication failed' })));
 
+      const uname = res.username.trim().toLowerCase();
       setState((s) => ({
         ...s,
         token: res.token,
-        username: res.username,
+        username: uname,
         keyPair: pair,
         publicKeyBase64,
         myFingerprint,
@@ -134,7 +143,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sharedKeys: {},
         remoteFingerprints: {},
       }));
-      getMe().then((profile) => setState((s) => ({ ...s, myDisplayName: profile.displayName, myStatus: profile.status }))).catch(() => {});
+      getMe()
+        .then(async (profile) => {
+          setState((s) => ({ ...s, myDisplayName: profile.displayName, myStatus: profile.status }));
+          if (profile.hasAvatar) {
+            try {
+              const av = await api<{ avatar: string }>('/api/users/' + encodeURIComponent(uname) + '/avatar');
+              setState((s) => ({ ...s, userAvatars: { ...s.userAvatars, [uname]: av.avatar } }));
+            } catch (_) {}
+          }
+        })
+        .catch(() => {});
     } catch (e) {
       setState((s) => ({ ...s, loading: false, error: (e as Error).message }));
       throw e;
@@ -153,8 +172,170 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  useEffect(() => {
+    const authToken = getToken();
+    if (!authToken) {
+      setState((s) => (s.loading ? { ...s, loading: false } : s));
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const profile = await getMe();
+        if (cancelled) return;
+        const u = profile.username.trim().toLowerCase();
+        const pair = await loadKeySession(u);
+        if (!pair) {
+          setToken(null);
+          await clearKeySession();
+          if (!cancelled) {
+            setState({
+              token: null,
+              username: null,
+              myDisplayName: null,
+              myStatus: null,
+              users: [],
+              userAvatars: {},
+              messageHistory: {},
+              remotePublicKeys: {},
+              keyPair: null,
+              publicKeyBase64: null,
+              myFingerprint: null,
+              remoteFingerprints: {},
+              sharedKeys: {},
+              socket: null,
+              onlineUsers: new Set(),
+              typingFrom: null,
+              loading: false,
+              error: null,
+            });
+          }
+          return;
+        }
+        const publicKeyBase64 = await CryptoUtils.exportPublicKeyBase64(pair.publicKey);
+        const myFingerprint = await CryptoUtils.getFingerprint(pair.publicKey);
+
+        const uploadKey = () => api('/api/me/publicKey', { method: 'POST', body: { publicKey: publicKeyBase64 } });
+        for (let i = 0; i < 3; i++) {
+          try {
+            await uploadKey();
+            break;
+          } catch {
+            if (i === 2) throw new Error('Could not sync encryption key');
+            await new Promise((r) => setTimeout(r, 600));
+          }
+        }
+        if (cancelled) return;
+
+        const socketOrigin = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        const socket = io(socketOrigin, { path: '/socket.io', transports: ['websocket', 'polling'] });
+        const tok = getToken();
+        socket.on('connect', () => socket.emit('auth', { token: tok, publicKey: publicKeyBase64 }));
+        socket.on('auth_fail', () => {
+          setToken(null);
+          void clearKeySession();
+          socket.disconnect();
+          if (!cancelled) {
+            setState({
+              token: null,
+              username: null,
+              myDisplayName: null,
+              myStatus: null,
+              users: [],
+              userAvatars: {},
+              messageHistory: {},
+              remotePublicKeys: {},
+              keyPair: null,
+              publicKeyBase64: null,
+              myFingerprint: null,
+              remoteFingerprints: {},
+              sharedKeys: {},
+              socket: null,
+              onlineUsers: new Set(),
+              typingFrom: null,
+              loading: false,
+              error: 'Session expired. Please sign in again.',
+            });
+          }
+        });
+
+        const nextAvatars: Record<string, string> = {};
+        if (profile.hasAvatar) {
+          try {
+            const av = await api<{ avatar: string }>('/api/users/' + encodeURIComponent(u) + '/avatar');
+            nextAvatars[u] = av.avatar;
+          } catch (_) {}
+        }
+
+        if (cancelled) {
+          socket.disconnect();
+          return;
+        }
+
+        setState((s) => ({
+          ...s,
+          token: tok,
+          username: u,
+          keyPair: pair,
+          publicKeyBase64,
+          myFingerprint,
+          myDisplayName: profile.displayName,
+          myStatus: profile.status,
+          socket,
+          userAvatars: { ...s.userAvatars, ...nextAvatars },
+          loading: false,
+          error: null,
+          users: [],
+          messageHistory: {},
+          remotePublicKeys: {},
+          sharedKeys: {},
+          remoteFingerprints: {},
+          onlineUsers: new Set(),
+          typingFrom: null,
+        }));
+      } catch {
+        setToken(null);
+        await clearKeySession();
+        if (!cancelled) {
+          setState({
+            token: null,
+            username: null,
+            myDisplayName: null,
+            myStatus: null,
+            users: [],
+            userAvatars: {},
+            messageHistory: {},
+            remotePublicKeys: {},
+            keyPair: null,
+            publicKeyBase64: null,
+            myFingerprint: null,
+            remoteFingerprints: {},
+            sharedKeys: {},
+            socket: null,
+            onlineUsers: new Set(),
+            typingFrom: null,
+            loading: false,
+            error: null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const logout = useCallback(async () => {
     if (state.socket) state.socket.disconnect();
+    try {
+      await api('/api/logout', { method: 'POST' });
+    } catch (_) {
+      /* offline or already invalid */
+    }
+    await clearKeySession();
     setToken(null);
     setState({
       token: null,
@@ -276,6 +457,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   }, [state.username]);
 
+  const clearConversation = useCallback(async (remoteUsername: string) => {
+    const u = (remoteUsername || '').trim().toLowerCase();
+    if (!state.username || !u) return;
+    setState((s) => ({
+      ...s,
+      messageHistory: { ...s.messageHistory, [u]: [] },
+    }));
+    await idb.clearConversation(state.username, u).catch(() => {});
+  }, [state.username]);
+
   const emitTyping = useCallback((toUsername: string, typing: boolean) => {
     if (state.socket && toUsername) state.socket.emit('typing', { to: toUsername, typing });
   }, [state.socket]);
@@ -389,6 +580,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sendMessage,
     appendMessage,
     mergeHistoryFromIDB,
+    clearConversation,
     emitTyping,
     updateMyProfile,
     refreshMyAvatar,

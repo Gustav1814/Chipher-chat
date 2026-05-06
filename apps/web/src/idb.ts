@@ -52,3 +52,14 @@ export async function addMessage(me: string, other: string, msg: StoredMessage):
     tx.onerror = () => reject(tx.error);
   });
 }
+
+export async function clearConversation(me: string, other: string): Promise<void> {
+  const db = await open();
+  const cid = convId(me, other);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({ convId: cid, messages: [] });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}

@@ -83,10 +83,11 @@ Deploy **`apps/server`** to Railway, Render, or Fly.io as in Option 1. The serve
 
 ## Checklist for any deployment
 
-- **HTTPS:** Use it in production so Web Crypto and cookies are secure. Railway/Render/Fly provide HTTPS.
+- **HTTPS:** Required in production for Web Crypto in the browser. Railway/Render/Fly terminate TLS for you.
 - **NODE_ENV=production**
 - **PORT:** Let the platform set it (they inject `PORT`).
-- **Database:** For persistent users/friends, use a volume or persistent disk and `DB_PATH` if the platform wipes the filesystem on deploy.
+- **Database:** Use a volume or persistent disk and set **`DB_PATH`** to a path on that volume; otherwise SQLite may reset on redeploy.
+- **CORS:** The server does **not** use `Access-Control-Allow-Origin: *` together with credentials. For **same hostname** (React static + API on one URL), leave **`CORS_ORIGIN`** unset — allowed origins are inferred from `Origin` vs `Host` / `X-Forwarded-Host`. For **split** UI and API, set **`CORS_ORIGIN`** to the exact frontend origin(s), comma-separated (e.g. `https://app.vercel.app`).
 
 ---
 

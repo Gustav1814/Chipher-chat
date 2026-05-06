@@ -1,134 +1,249 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
+import { teamEmojiFor } from '../teamEmoji';
 import { Icons } from '../types';
 
 interface RightPanelProps {
   activeChatId: string | null;
 }
 
+function useCountUp(target: number, duration = 800) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - (1 - t) * (1 - t);
+      setV(Math.round(from + (target - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return v;
+}
+
 export const RightPanel: React.FC<RightPanelProps> = ({ activeChatId }) => {
-  const { users, userAvatars, myFingerprint, remoteFingerprints, messageHistory, onlineUsers } = useAuth();
+  const { users, userAvatars, myFingerprint, remoteFingerprints, messageHistory, onlineUsers, clearConversation } = useAuth();
   const theirFingerprint = activeChatId ? remoteFingerprints[activeChatId] : null;
   const contact = activeChatId ? users.find((u) => u.username === activeChatId) : null;
   const displayName = contact?.displayName || contact?.username || activeChatId;
-  const contactStatus = contact?.status ?? '';
+  const teamE = teamEmojiFor(contact?.displayName, activeChatId || '');
   const contactAvatar = activeChatId ? userAvatars[activeChatId] : null;
   const isOnline = activeChatId ? onlineUsers.has(activeChatId) || contact?.online : false;
 
-  // Extract real shared media from message history
-  const messages = activeChatId ? (messageHistory[activeChatId] || []) : [];
+  const messages = activeChatId ? messageHistory[activeChatId] || [] : [];
   const sharedImages = messages.filter((m) => m.attachment?.type === 'image' && m.attachment?.data);
   const totalMessages = messages.length;
 
+  const msgCount = useCountUp(totalMessages);
+  const mediaCount = useCountUp(sharedImages.length);
+
+  const [keysVerified, setKeysVerified] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [notifPush, setNotifPush] = useState(true);
+  const [notifSound, setNotifSound] = useState(false);
+
+  useEffect(() => {
+    setKeysVerified(false);
+  }, [activeChatId]);
+
+  const copyFp = useCallback((label: string, text: string) => {
+    if (!text || text === '—') return;
+    void navigator.clipboard.writeText(text).then(() => {
+      setToast(`Copied ${label}`);
+      setTimeout(() => setToast(null), 2200);
+    });
+  }, []);
+
+  const cellClass = ['cipher-media-cell a', 'cipher-media-cell b', 'cipher-media-cell c', 'cipher-media-cell d', 'cipher-media-cell e', 'cipher-media-cell f'];
+
   return (
-    <div className="w-80 h-full flex flex-col border-l border-brand-border glass-panel p-5 overflow-y-auto">
+    <div className="cipher-rpanel cipher-scroll-hide">
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-xl border border-[var(--seam2)] bg-[var(--deep)] text-[11px] text-[var(--tx1)] shadow-[0_0_24px_rgba(91,95,255,0.25)]"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {activeChatId ? (
         <>
-          {/* Contact Profile Card */}
-          <div className="flex flex-col items-center p-5 rounded-2xl border border-brand-border bg-brand-glass mb-5">
-            <div className="relative mb-3">
+          <div className="cipher-rp-profile">
+            <div className="cipher-rp-ring-out">
               {contactAvatar ? (
-                <img src={`data:image/png;base64,${contactAvatar}`} alt="" className="w-20 h-20 rounded-full border-2 border-brand-accent object-cover" />
+                <div className="cipher-rp-avatar-lg overflow-hidden">
+                  <img src={`data:image/png;base64,${contactAvatar}`} alt="" />
+                </div>
+              ) : teamE ? (
+                <div className="cipher-rp-avatar-lg text-[1.35rem] font-normal leading-none">{teamE}</div>
               ) : (
-                <div className="w-20 h-20 rounded-full border-2 border-brand-accent bg-brand-accent flex items-center justify-center text-2xl font-bold text-white">
-                  {(displayName || activeChatId).charAt(0).toUpperCase()}
-                </div>
+                <div className="cipher-rp-avatar-lg">{(displayName || activeChatId).charAt(0).toUpperCase()}</div>
               )}
-              <span className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border-2 border-brand-surface ${isOnline ? 'status-online' : 'status-offline'}`} />
+              {isOnline && <span className="cipher-rp-online" />}
             </div>
-            <div className="text-center w-full space-y-1.5">
-              <div className="text-base font-bold">{displayName}</div>
-              <div className="text-xs text-brand-text-muted">@{activeChatId}</div>
-              {contactStatus && (
-                <p className="text-xs text-brand-text-muted italic truncate" title={contactStatus}>
-                  "{contactStatus}"
-                </p>
+            <h2 className="cipher-rp-name">
+              {teamE && (
+                <span className="mr-1.5 inline-block" aria-hidden>
+                  {teamE}
+                </span>
               )}
-              <div className="encryption-badge mx-auto mt-2">
-                <Icons.Lock size={10} />
-                <span>E2E Encrypted</span>
+              {displayName}
+            </h2>
+            <p className="cipher-rp-handle">@{activeChatId}</p>
+            <div className="flex items-center gap-2 mt-1 opacity-[0.62]">
+              <Icons.Lock size={10} strokeWidth={2} stroke="url(#ig)" />
+              <span className="cipher-text-iris text-[10px] font-semibold uppercase tracking-[0.12em]">Encrypted</span>
+            </div>
+
+            <div className="cipher-rp-actions">
+              <div className="cipher-rp-act">
+                <button type="button" className="cipher-rp-act-btn" title="Call">
+                  <Icons.Phone size={18} strokeWidth={1.55} />
+                </button>
+                <span>Call</span>
+              </div>
+              <div className="cipher-rp-act">
+                <button type="button" className="cipher-rp-act-btn" title="Video">
+                  <Icons.Video size={18} strokeWidth={1.55} />
+                </button>
+                <span>Video</span>
+              </div>
+              <div className="cipher-rp-act">
+                <button type="button" className="cipher-rp-act-btn" title="Share">
+                  <Icons.Share2 size={18} strokeWidth={1.55} />
+                </button>
+                <span>Share</span>
               </div>
             </div>
           </div>
 
-          {/* Chat Stats */}
-          <div className="shared-section">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
-                <div className="text-lg font-bold">{totalMessages}</div>
-                <div className="text-[10px] text-brand-text-muted">Messages</div>
-              </div>
-              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
-                <div className="text-lg font-bold">{sharedImages.length}</div>
-                <div className="text-[10px] text-brand-text-muted">Media</div>
-              </div>
-              <div className="p-3 rounded-xl bg-brand-glass border border-brand-border">
-                <div className="text-lg font-bold flex items-center justify-center">
-                  <Icons.Lock size={16} className="text-green-500" />
-                </div>
-                <div className="text-[10px] text-brand-text-muted">Secured</div>
-              </div>
+          <div className="cipher-rp-stats">
+            <div className="cipher-rp-stat-cell">
+              <div className="cipher-stat-num">{msgCount}</div>
+              <div className="cipher-rp-stat-label">Messages</div>
+            </div>
+            <div className="cipher-rp-stat-cell">
+              <div className="cipher-stat-num">{mediaCount}</div>
+              <div className="cipher-rp-stat-label">Media</div>
+            </div>
+            <div className="cipher-rp-stat-cell">
+              <div className="cipher-stat-num text-[16px] leading-none pt-1">✦</div>
+              <div className="cipher-rp-stat-label">Secured</div>
             </div>
           </div>
 
-          {/* Shared Media */}
-          {sharedImages.length > 0 && (
-            <div className="shared-section">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Shared Media</span>
-                <span className="text-[10px] text-brand-accent">{sharedImages.length} items</span>
-              </div>
-              <div className="shared-media-grid">
-                {sharedImages.slice(0, 8).map((m, i) => (
-                  <div key={i} className="shared-media-thumb">
+          <div className="cipher-rp-section-h">Notifications</div>
+          <div className="cipher-toggle-row">
+            <label htmlFor="n1">Push notifications</label>
+            <button
+              id="n1"
+              type="button"
+              role="switch"
+              aria-checked={notifPush}
+              className={`cipher-switch ${notifPush ? 'on' : 'off'}`}
+              onClick={() => setNotifPush((v) => !v)}
+            >
+              <span className="cipher-switch-thumb" />
+            </button>
+          </div>
+          <div className="cipher-toggle-row">
+            <label htmlFor="n2">Sound</label>
+            <button
+              id="n2"
+              type="button"
+              role="switch"
+              aria-checked={notifSound}
+              className={`cipher-switch ${notifSound ? 'on' : 'off'}`}
+              onClick={() => setNotifSound((v) => !v)}
+            >
+              <span className="cipher-switch-thumb" />
+            </button>
+          </div>
+
+          <div className="cipher-rp-section-h pt-2">Encryption</div>
+          <div className="cipher-fp-card">
+            <div className="cipher-fp-label">Your fingerprint</div>
+            <FingerprintVal variant="self" text={myFingerprint || '—'} onCopy={() => copyFp('your fingerprint', myFingerprint || '')} />
+          </div>
+          <div className="cipher-fp-card">
+            <div className="cipher-fp-label">{displayName}&apos;s fingerprint</div>
+            <FingerprintVal variant="peer" text={theirFingerprint || '—'} onCopy={() => copyFp('their fingerprint', theirFingerprint || '')} />
+          </div>
+          <button
+            type="button"
+            className="cipher-btn-verify"
+            onClick={() => {
+              setKeysVerified(true);
+              setToast('Marked as verified (local)');
+              setTimeout(() => setToast(null), 2200);
+            }}
+          >
+            <Icons.Check size={14} strokeWidth={2} stroke="url(#ig)" />
+            {keysVerified ? 'Verified' : 'Mark as verified'}
+          </button>
+
+          <div className="cipher-rp-section-h">Shared media</div>
+          <div className="cipher-media-grid">
+            {sharedImages.length > 0
+              ? sharedImages.slice(0, 6).map((m, i) => (
+                  <div key={i} className={`${cellClass[i % cellClass.length]} overflow-hidden p-0`}>
                     <img
                       src={`data:${m.attachment?.mime || 'image/png'};base64,${m.attachment?.data}`}
                       alt=""
                       className="w-full h-full object-cover"
                     />
                   </div>
+                ))
+              : cellClass.map((c, i) => (
+                  <div key={i} className={c}>
+                    {['📎', '🖼', '🔐', '✨', '💬', '🛡'][i]}
+                  </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Encryption Verification */}
-          <div className="shared-section">
-            <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
-              <Icons.Lock size={12} className="text-green-500" />
-              Encryption Verification
-            </h3>
-            <p className="text-[10px] text-brand-text-muted mb-3 leading-relaxed">
-              Compare fingerprints with {displayName} in person or via a secure channel to verify their identity.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-1">Your fingerprint</div>
-                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2.5 py-2 rounded-lg leading-relaxed">
-                  {myFingerprint || '—'}
-                </code>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-1">{displayName}'s fingerprint</div>
-                <code className="text-[10px] font-mono text-brand-accent break-all block bg-black/20 px-2.5 py-2 rounded-lg leading-relaxed">
-                  {theirFingerprint || '—'}
-                </code>
-              </div>
-            </div>
           </div>
+
+          <button
+            type="button"
+            className="cipher-clear-btn"
+            onClick={() => {
+              if (!activeChatId) return;
+              if (!window.confirm('Clear this conversation from this device only? This cannot be undone.')) return;
+              void clearConversation(activeChatId);
+              setToast('Conversation cleared locally');
+              setTimeout(() => setToast(null), 2200);
+            }}
+          >
+            <Icons.Trash2 size={13} strokeWidth={1.55} />
+            Clear conversation
+          </button>
         </>
       ) : (
-        /* No chat selected */
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-          <div className="w-16 h-16 rounded-full bg-brand-glass border border-brand-border flex items-center justify-center mb-4">
-            <Icons.Lock size={24} className="text-brand-accent" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-5 py-10">
+          <div className="w-14 h-14 rounded-2xl border border-[var(--seam2)] bg-[var(--lift)] flex items-center justify-center mb-3">
+            <Icons.ShieldCheck size={24} strokeWidth={1.55} className="text-[var(--i3)]" />
           </div>
-          <h3 className="text-sm font-semibold mb-2">End-to-End Encrypted</h3>
-          <p className="text-[11px] text-brand-text-muted leading-relaxed">
-            Select a chat to see contact details and encryption verification. Your keys are generated automatically on login.
+          <h3 className="font-[family-name:var(--font-display)] text-[13px] font-bold text-[var(--tx2)] mb-2">Cipher</h3>
+          <p className="text-[10px] text-[var(--tx3)] leading-relaxed font-[family-name:var(--font-sans)] font-light">
+            Select a chat for profile, fingerprints, and shared media.
           </p>
         </div>
       )}
     </div>
   );
 };
+
+const FingerprintVal: React.FC<{ text: string; onCopy: () => void; variant: 'self' | 'peer' }> = ({ text, onCopy, variant }) => (
+    <button type="button" onClick={onCopy} className="w-full text-left cursor-pointer group">
+      <code className={`cipher-fp-val block ${variant === 'self' ? 'self' : 'peer'}`}>{text}</code>
+      <span className="text-[8px] text-[var(--tx3)] opacity-0 group-hover:opacity-100 transition-opacity">Tap to copy</span>
+    </button>
+);

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { Icons } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { teamEmojiFor } from '../teamEmoji';
+import { COMPOSER_EMOJI_GROUPS } from '../composerEmojis';
+import { isJumboEmojiOnly } from '../emojiJumbo';
 import type { ChatMessage } from '../context/AuthContext';
 
 interface ChatWindowProps {
@@ -15,8 +17,17 @@ function formatTime(ts: number) {
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePanel }) => {
   const {
-    users, userAvatars, username, messageHistory, getRelationship, ensureRemoteKey, sendMessage,
-    onlineUsers, typingFrom, emitTyping, mergeHistoryFromIDB,
+    users,
+    userAvatars,
+    username,
+    messageHistory,
+    getRelationship,
+    ensureRemoteKey,
+    sendMessage,
+    onlineUsers,
+    typingFrom,
+    emitTyping,
+    mergeHistoryFromIDB,
   } = useAuth();
   const [input, setInput] = useState('');
   const [keyReady, setKeyReady] = useState(false);
@@ -25,14 +36,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
   const [pendingAttachment, setPendingAttachment] = useState<ChatMessage['attachment'] | null>(null);
   const [searchInChat, setSearchInChat] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
   const [keyErrorMessage, setKeyErrorMessage] = useState<string | null>(null);
+  const [pinnedVisible, setPinnedVisible] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const friend = users.find((u) => u.username === activeChatId);
-  const isFriend = friend && getRelationship(activeChatId!) === 'friend';
-  let messages: ChatMessage[] = activeChatId ? (messageHistory[activeChatId] || []) : [];
+  const isFriend = friend && activeChatId && getRelationship(activeChatId) === 'friend';
+  let messages: ChatMessage[] = activeChatId ? messageHistory[activeChatId] || [] : [];
   const q = searchInChat.trim().toLowerCase();
   if (q) messages = messages.filter((m) => (m.text || '').toLowerCase().includes(q));
 
@@ -49,7 +68,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
     setKeyError(false);
     setKeyReady(false);
     setKeyErrorMessage(null);
-    mergeHistoryFromIDB(activeChatId).then(() => { });
+    mergeHistoryFromIDB(activeChatId).then(() => {});
 
     let cancelled = false;
     const fetchKeyWithRetry = (retriesLeft: number) => {
@@ -71,10 +90,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
       });
     };
     fetchKeyWithRetry(6);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeChatId, isFriend, ensureRemoteKey, mergeHistoryFromIDB]);
 
-  // When key is missing and they're online, keep polling until we get it (they may have just opened the app)
   useEffect(() => {
     if (!keyError || !activeChatId || !onlineUsers.has(activeChatId)) return;
     const tryFetch = () => {
@@ -95,7 +115,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, typingFrom === activeChatId]);
+
+  useEffect(() => {
+    setShowEmojiPicker(false);
+  }, [activeChatId]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!chatMenuRef.current?.contains(e.target as Node)) setShowChatMenu(false);
+      if (!emojiPickerRef.current?.contains(e.target as Node)) setShowEmojiPicker(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = '0';
+    el.style.height = `${Math.min(96, el.scrollHeight)}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [input, autoResize]);
 
   const handleTyping = useCallback(() => {
     if (!activeChatId) return;
@@ -107,14 +151,41 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
     }, 300);
   }, [activeChatId, emitTyping]);
 
-  useEffect(() => () => {
-    if (typingStopRef.current) clearTimeout(typingStopRef.current);
-    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
-    if (activeChatId) emitTyping(activeChatId, false);
-  }, [activeChatId, emitTyping]);
+  const insertEmojiInComposer = useCallback(
+    (emoji: string) => {
+      if (!emoji || !keyReady) return;
+      const ta = textareaRef.current;
+      setInput((prev) => {
+        const start = ta ? ta.selectionStart : prev.length;
+        const end = ta ? ta.selectionEnd : prev.length;
+        const padBefore = start > 0 && /\S/.test(prev[start - 1]!) ? ' ' : '';
+        const padAfter = end < prev.length && /\S/.test(prev[end]!) ? ' ' : '';
+        const chunk = `${padBefore}${emoji}${padAfter}`;
+        const next = prev.slice(0, start) + chunk + prev.slice(end);
+        const cursor = start + chunk.length;
+        if (ta) {
+          queueMicrotask(() => {
+            ta.focus();
+            ta.setSelectionRange(cursor, cursor);
+          });
+        }
+        return next;
+      });
+      handleTyping();
+    },
+    [keyReady, handleTyping],
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(
+    () => () => {
+      if (typingStopRef.current) clearTimeout(typingStopRef.current);
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      if (activeChatId) emitTyping(activeChatId, false);
+    },
+    [activeChatId, emitTyping],
+  );
+
+  const doSend = () => {
     const text = input.trim();
     if (!activeChatId || !keyReady || (!text && !pendingAttachment)) return;
     emitTyping(activeChatId, false);
@@ -124,8 +195,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
     setPendingAttachment(null);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    doSend();
+  };
+
   const handleExport = useCallback(() => {
     if (!activeChatId) return;
+    setShowChatMenu(false);
     const list = messageHistory[activeChatId] || [];
     const otherName = friend?.displayName || activeChatId;
     const lines = list.map((m) => {
@@ -138,89 +215,177 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
     a.download = `chat-${activeChatId}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [activeChatId, messageHistory]);
+  }, [activeChatId, messageHistory, friend?.displayName]);
+
+  const onFileChosen = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = reader.result as string;
+      const base64 = data.replace(/^data:[^;]+;base64,/, '');
+      if (base64.length > 450000) return;
+      setPendingAttachment({ type: 'image', name: file.name || 'image', data: base64, mime: file.type || 'image/png' });
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
   if (!activeChatId) {
     return (
-      <div className="flex-1 h-full flex flex-col items-center justify-center bg-brand-bg text-brand-text-muted">
-        <Icons.MessageSquare size={48} className="mb-4 opacity-50" />
-        <p className="text-sm">Choose a conversation</p>
-        <p className="text-xs mt-1">Messages are end-to-end encrypted. Only friends can chat.</p>
+      <div className="cipher-chat-col">
+        <div className="cipher-empty-chat">
+          <Icons.MessageSquare size={40} strokeWidth={1.55} className="text-[var(--tx3)] opacity-80" />
+          <h3>Cipher</h3>
+          <p className="text-[12px] font-[family-name:var(--font-sans)] font-light text-[var(--tx3)] max-w-xs">
+            Choose a conversation. Messages are end-to-end encrypted.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!isFriend) {
     return (
-      <div className="flex-1 h-full flex flex-col items-center justify-center bg-brand-bg text-brand-text-muted p-6">
-        <Icons.Lock size={48} className="mb-4 opacity-50" />
-        <p className="text-sm font-medium">{activeChatId}</p>
-        <p className="text-xs mt-2 text-center">Add them as a friend in Contacts to start an encrypted chat.</p>
+      <div className="cipher-chat-col">
+        <div className="cipher-empty-chat">
+          <Icons.ShieldCheck size={40} strokeWidth={1.55} className="text-[var(--i3)] opacity-90" />
+          <h3>{activeChatId}</h3>
+          <p className="text-[12px] font-[family-name:var(--font-sans)] font-light text-[var(--tx3)] max-w-xs">
+            Add them as a friend in People to start an encrypted chat.
+          </p>
+        </div>
       </div>
     );
   }
 
   const avatar = userAvatars[activeChatId];
   const displayName = friend?.displayName || activeChatId;
+  const teamE = teamEmojiFor(friend?.displayName, activeChatId);
+  const pinnedText = messages.find((m) => m.text)?.text?.slice(0, 80) || 'Encrypted session active';
 
   return (
-    <div className="flex-1 h-full flex flex-col text-brand-text relative overflow-hidden chat-window-theme">
-      <div className="p-6 flex items-center justify-between border-b border-brand-border z-10 glass-panel">
-        <div className="flex items-center gap-4">
-          {avatar ? (
-            <img src={`data:image/png;base64,${avatar}`} alt="" className="w-10 h-10 rounded-full object-cover border border-brand-border" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-brand-accent border border-brand-border flex items-center justify-center font-semibold text-white text-sm">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <h2 className="text-base font-semibold flex items-center gap-2">
+    <div className="cipher-chat-col">
+      <header className="cipher-chat-header">
+        <div className="cipher-ch-left min-w-0">
+          <div className="cipher-ch-avatar-wrap">
+            <div className="cipher-ch-avatar-glow" aria-hidden />
+            {avatar ? (
+              <div className="cipher-ch-avatar p-0 overflow-hidden">
+                <img src={`data:image/png;base64,${avatar}`} alt="" />
+              </div>
+            ) : teamE ? (
+              <div className="cipher-ch-avatar text-[1.15rem] font-normal leading-none">{teamE}</div>
+            ) : (
+              <div className="cipher-ch-avatar">{displayName.charAt(0).toUpperCase()}</div>
+            )}
+            {isOnline && <span className="cipher-ch-dot" />}
+          </div>
+          <div className="cipher-ch-info min-w-0">
+            <h2 className="truncate">
+              {teamE && (
+                <span className="mr-1.5 inline-block" aria-hidden>
+                  {teamE}
+                </span>
+              )}
               {displayName}
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`}
-                title={isOnline ? 'Online' : 'Offline'}
-              />
             </h2>
-            <p className="text-xs text-brand-text-muted flex items-center gap-1">
-              <Icons.Lock size={10} /> E2E Encrypted
-            </p>
+            <div className="cipher-ch-status">
+              {isOnline && <span className="cipher-ch-status-dot" />}
+              {isOnline ? 'Online now' : 'Offline'}
+            </div>
+          </div>
+          <div className="cipher-private-badge shrink-0">
+            <Icons.Lock size={10} strokeWidth={2} stroke="url(#ig)" />
+            <span>Private</span>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setShowSearch((s) => !s)} className="p-2 text-brand-text-muted hover:text-brand-text rounded-lg" title="Search">🔍</button>
+        <div className="cipher-ch-actions">
+          <button type="button" disabled className="cipher-ch-action" title="Voice call">
+            <Icons.Phone size={17} strokeWidth={1.55} />
+          </button>
+          <button type="button" disabled className="cipher-ch-action" title="Video call">
+            <Icons.Video size={17} strokeWidth={1.55} />
+          </button>
+          <span className="cipher-ch-divider" />
+          <button
+            type="button"
+            onClick={() => setShowSearch((s) => !s)}
+            className="cipher-ch-action"
+            title="Search in chat"
+          >
+            <Icons.Search size={17} strokeWidth={1.55} />
+          </button>
           {showSearch && (
             <input
               type="text"
-              placeholder="Search in chat..."
+              placeholder="Search…"
               value={searchInChat}
               onChange={(e) => setSearchInChat(e.target.value)}
-              className="w-32 px-2 py-1 text-sm bg-brand-input border border-brand-border rounded-lg text-brand-text placeholder:text-brand-text-muted"
+              className="w-28 px-2 py-1.5 text-[11px] rounded-lg bg-[var(--lift)] border border-[var(--seam2)] text-[var(--tx1)] placeholder:text-[var(--tx3)] outline-none focus:border-[rgba(91,95,255,0.35)]"
             />
           )}
-          <button type="button" onClick={handleExport} className="p-2 text-brand-text-muted hover:text-brand-text rounded-lg text-xs" title="Export chat">Export</button>
-          {onTogglePanel && (
-            <button type="button" onClick={onTogglePanel} className="p-2 text-brand-text-muted hover:text-brand-text rounded-lg">
-              <Icons.ChevronRight size={20} />
+          <div className="relative" ref={chatMenuRef}>
+            <button type="button" onClick={() => setShowChatMenu((v) => !v)} className="cipher-ch-action" title="More">
+              <Icons.MoreHorizontal size={17} strokeWidth={1.55} />
             </button>
-          )}
+            {showChatMenu && (
+              <div className="absolute right-0 top-full mt-1 py-1 min-w-[9rem] rounded-xl border border-[var(--seam2)] bg-[rgba(0,0,0,0.94)] backdrop-blur-xl z-50 shadow-[0_8px_36px_rgba(0,0,0,0.65)]">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[var(--tx2)] hover:bg-[var(--lift3)]"
+                >
+                  <Icons.Download size={14} strokeWidth={1.55} />
+                  Export chat
+                </button>
+                {onTogglePanel && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChatMenu(false);
+                      onTogglePanel();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[var(--tx2)] hover:bg-[var(--lift3)]"
+                  >
+                    <Icons.Info size={14} strokeWidth={1.55} />
+                    Details panel
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {typingFrom === activeChatId && (
-        <div className="px-6 py-1 text-xs text-brand-text-muted italic z-10">{activeChatId} is typing…</div>
+      {pinnedVisible && (
+        <div className="cipher-pinned">
+          <div className="cipher-pinned-accent" />
+          <Icons.Pin size={13} strokeWidth={1.55} className="cipher-pinned-pin" />
+          <span className="cipher-pinned-label">Pinned</span>
+          <span className="cipher-pinned-text">{pinnedText}</span>
+          <button type="button" className="cipher-pinned-x" aria-label="Dismiss pinned" onClick={() => setPinnedVisible(false)}>
+            <Icons.X size={14} strokeWidth={1.55} />
+          </button>
+        </div>
       )}
 
       {replyTo && (
-        <div className="px-6 py-2 flex items-center gap-2 border-b border-brand-border glass z-10 text-sm">
-          <span className="text-brand-text-muted truncate flex-1">Replying to: {(replyTo.text || '').slice(0, 50)}{replyTo.text.length > 50 ? '…' : ''}</span>
-          <button type="button" onClick={() => setReplyTo(null)} className="text-brand-text-muted hover:text-brand-text p-1">✕</button>
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-[var(--seam)] bg-[var(--lift)] text-[11px]">
+          <span className="text-[var(--tx3)] truncate flex-1">Replying: {(replyTo.text || '').slice(0, 60)}</span>
+          <button type="button" onClick={() => setReplyTo(null)} className="cipher-in-btn !w-8 !h-8" aria-label="Cancel reply">
+            <Icons.X size={14} strokeWidth={1.55} />
+          </button>
         </div>
       )}
 
       {keyError && (
-        <div className="mx-4 mt-2 p-3 rounded-xl glass border-brand-border text-brand-text-muted text-sm flex items-center justify-between gap-3">
-          <span>Encryption key for {displayName} is not available yet. {keyErrorMessage ? <strong>{keyErrorMessage}.</strong> : null} {keyErrorMessage === 'Public key not set' ? 'Have them open this app in another tab, log in as themselves, and stay on the app. ' : keyErrorMessage && (keyErrorMessage.includes('fetch') || keyErrorMessage.includes('Network')) ? 'Is the backend running on port 3000? ' : ''}Ask them to open the app and stay logged in.{isOnline ? ' Retrying automatically…' : ' Then click Retry.'}</span>
+        <div className="mx-4 mt-2 p-3 rounded-xl border border-[var(--seam2)] bg-[var(--lift)] text-[var(--tx2)] text-[11px] flex items-center justify-between gap-3">
+          <span>
+            Encryption key for {displayName} is not available yet. {keyErrorMessage ? <strong>{keyErrorMessage}.</strong> : null}{' '}
+            Ask them to stay logged in.
+            {isOnline ? ' Retrying…' : ''}
+          </span>
           <button
             type="button"
             onClick={() => {
@@ -231,161 +396,250 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ activeChatId, onTogglePa
                 if (!result.ok) setKeyErrorMessage(result.error || null);
               });
             }}
-            className="shrink-0 px-3 py-1.5 rounded-lg bg-brand-accent/20 text-brand-accent hover:bg-brand-accent/30 text-xs font-medium"
+            className="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-semibold border border-[rgba(91,95,255,0.3)] text-[var(--i3)] bg-[rgba(91,95,255,0.08)]"
           >
             Retry
           </button>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 z-10 bg-transparent">
-        {messages.map((msg, idx) => (
-          <MessageBubble
-            key={`${msg.at}-${idx}`}
-            message={msg}
-            isMe={msg.own}
-            myAvatar={userAvatars[username || '']}
-            theirAvatar={avatar}
-            theirName={displayName}
-            onReply={() => setReplyTo({ id: `${msg.at}-${idx}`, text: (msg.text || '').slice(0, 200) })}
-          />
-        ))}
-        <div ref={messagesEndRef} />
-        <div className="flex items-center justify-center gap-2 py-3 mt-2">
-          <span className="flex gap-1"><span className="secure-dot"></span><span className="secure-dot"></span><span className="secure-dot"></span></span>
-          <span className="text-[10px] text-brand-text-muted tracking-wide">Secure connection active...</span>
+      <div ref={scrollRef} className="cipher-feed cipher-scroll-chat">
+        <div className="cipher-date-divider">Today</div>
+        <div className="cipher-e2e-pill">
+          <span className="cipher-e2e-grad">
+            <Icons.ShieldCheck size={12} strokeWidth={1.55} className="shrink-0 opacity-90" />
+            End-to-end encrypted — keys stay on device
+          </span>
         </div>
+
+        {typingFrom === activeChatId && (
+          <div className="cipher-msg-row r">
+            <div className="cipher-msg-ava hide" />
+            <div className="cipher-typing-bubble">
+              <span className="cipher-typing-dot" />
+              <span className="cipher-typing-dot" />
+              <span className="cipher-typing-dot" />
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, idx) => {
+          const prev = idx > 0 ? messages[idx - 1] : undefined;
+          const samePrev = prev && prev.own === msg.own;
+          const showAvatar = !samePrev;
+          return (
+            <CipherMessageRow
+              key={`${msg.at}-${idx}`}
+              message={msg}
+              isMe={msg.own}
+              showAvatar={showAvatar}
+              myAvatar={userAvatars[username || '']}
+              myInitial={(username || 'U').charAt(0).toUpperCase()}
+              theirAvatar={avatar}
+              theirTeamEmoji={teamE}
+              theirName={displayName}
+              idx={idx}
+              onReply={() => setReplyTo({ id: `${msg.at}-${idx}`, text: (msg.text || '').slice(0, 200) })}
+            />
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
 
       {pendingAttachment && (
-        <div className="px-6 py-2 flex items-center gap-2 border-b border-brand-border glass z-10 text-sm">
+        <div className="px-4 py-2 flex items-center gap-2 border-t border-[var(--seam)] bg-[var(--lift)] text-[11px]">
           {pendingAttachment.type === 'image' && pendingAttachment.data && (
-            <img src={`data:${pendingAttachment.mime || 'image/png'};base64,${pendingAttachment.data}`} alt="" className="h-10 w-10 rounded object-cover" />
+            <img
+              src={`data:${pendingAttachment.mime || 'image/png'};base64,${pendingAttachment.data}`}
+              alt=""
+              className="h-9 w-9 rounded-lg object-cover"
+            />
           )}
-          <span className="text-brand-text-muted truncate flex-1">{pendingAttachment.name || 'Image'}</span>
-          <button type="button" onClick={() => setPendingAttachment(null)} className="text-brand-text-muted hover:text-brand-text p-1">✕</button>
+          <span className="text-[var(--tx3)] truncate flex-1">{pendingAttachment.name || 'Image'}</span>
+          <button type="button" onClick={() => setPendingAttachment(null)} className="cipher-in-btn !w-8 !h-8">
+            <Icons.X size={14} strokeWidth={1.55} />
+          </button>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="p-6 z-10 border-t border-brand-border glass-panel">
-        <div className="glass rounded-2xl p-2 flex items-center gap-2 min-h-[52px]">
-          <input
-            type="text"
-            placeholder={keyReady ? 'Write an encrypted message...' : 'Loading encryption...'}
+
+      <form onSubmit={handleSubmit} className="cipher-input-area">
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChosen} />
+        <div className="cipher-input-shell">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="cipher-in-btn"
+            title="Attach"
+            disabled={!keyReady}
+          >
+            <Icons.Paperclip size={16} strokeWidth={1.6} />
+          </button>
+          {teamE ? (
+            <button
+              type="button"
+              className="cipher-team-quick-emoji"
+              title={`Insert ${teamE} (team)`}
+              aria-label={`Insert team emoji ${teamE} into message`}
+              disabled={!keyReady}
+              onClick={() => insertEmojiInComposer(teamE)}
+            >
+              <span aria-hidden>{teamE}</span>
+            </button>
+          ) : null}
+          <div className="cipher-emoji-picker-wrap" ref={emojiPickerRef}>
+            <button
+              type="button"
+              className={`cipher-in-btn ${showEmojiPicker ? 'bg-[var(--lift3)] text-[var(--tx1)]' : ''}`}
+              title="Emoji"
+              aria-label="Open emoji picker"
+              aria-expanded={showEmojiPicker}
+              disabled={!keyReady}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowEmojiPicker((v) => !v)}
+            >
+              <Icons.Smile size={16} strokeWidth={1.6} />
+            </button>
+            {showEmojiPicker && keyReady && (
+              <div className="cipher-emoji-popover" role="listbox" aria-label="Emoji categories">
+                {COMPOSER_EMOJI_GROUPS.map((group) => (
+                  <div key={group.title} className="cipher-emoji-popover-section">
+                    <div className="cipher-emoji-popover-label">{group.title}</div>
+                    <div className="cipher-emoji-popover-grid">
+                      {group.emojis.map((em) => (
+                        <button
+                          key={`${group.title}-${em}`}
+                          type="button"
+                          className="cipher-emoji-popover-cell"
+                          role="option"
+                          title={em}
+                          aria-label={`Insert ${em}`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            insertEmojiInComposer(em);
+                            setShowEmojiPicker(false);
+                          }}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            placeholder={keyReady ? 'Message…' : 'Loading encryption…'}
             value={input}
-            onChange={(e) => { setInput(e.target.value); handleTyping(); }}
-            onBlur={() => activeChatId && emitTyping(activeChatId, false)}
-            onPaste={(e) => {
-              const dt = e.clipboardData;
-              if (!dt?.items?.length) return;
-              for (let i = 0; i < dt.items.length; i++) {
-                if (dt.items[i].type.indexOf('image') !== -1) {
-                  const file = dt.items[i].getAsFile();
-                  if (file) {
-                    e.preventDefault();
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const data = reader.result as string;
-                      const base64 = data.replace(/^data:[^;]+;base64,/, '');
-                      if (base64.length > 450000) return;
-                      setPendingAttachment({ type: 'image', name: file.name || 'pasted.png', data: base64, mime: file.type || 'image/png' });
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                  break;
-                }
+            onChange={(e) => {
+              setInput(e.target.value);
+              handleTyping();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                doSend();
               }
             }}
+            onBlur={() => activeChatId && emitTyping(activeChatId, false)}
             disabled={!keyReady}
-            className="flex-1 bg-transparent border-none focus:outline-none text-sm py-2 px-3 text-brand-text placeholder:text-brand-text-muted disabled:opacity-60"
+            className="cipher-textarea"
           />
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={!keyReady || (!input.trim() && !pendingAttachment)}
-            className="btn-send-gradient shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:pointer-events-none"
-          >
-            <Icons.Send size={18} />
-          </motion.button>
+          <button type="submit" disabled={!keyReady || (!input.trim() && !pendingAttachment)} className="cipher-send-btn" title="Send">
+            <Icons.Send size={18} strokeWidth={2.3} className="text-white -translate-x-px" />
+          </button>
+        </div>
+        <div className="cipher-security-bar">
+          <span className="cipher-security-dot" />
+          <span>
+            AES-256-GCM · End-to-end encrypted · Forward secrecy enabled
+          </span>
         </div>
       </form>
     </div>
   );
 };
 
-const MessageBubble: React.FC<{
+const CipherMessageRow: React.FC<{
   message: ChatMessage;
   isMe: boolean;
+  showAvatar: boolean;
   myAvatar?: string;
+  myInitial: string;
   theirAvatar?: string;
+  theirTeamEmoji?: string | null;
   theirName: string;
+  idx: number;
   onReply?: () => void;
-}> = ({ message, isMe, myAvatar, theirAvatar, theirName, onReply }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 6 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.2 }}
-    className={`flex gap-3 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
-  >
-    <div className="shrink-0 mt-auto">
-      {isMe ? (
-        myAvatar ? (
-          <img src={`data:image/png;base64,${myAvatar}`} alt="" className="w-7 h-7 rounded-full border border-brand-border object-cover" />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-brand-accent/80 flex items-center justify-center text-white text-[10px] font-semibold">You</div>
-        )
-      ) : (
-        theirAvatar ? (
-          <img src={`data:image/png;base64,${theirAvatar}`} alt="" className="w-7 h-7 rounded-full border border-brand-border object-cover" />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-brand-accent/60 flex items-center justify-center text-white text-[10px] font-semibold">
-            {theirName.charAt(0).toUpperCase()}
-          </div>
-        )
-      )}
-    </div>
-    <div className={`max-w-[65%] flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
-      {message.attachment?.data && (
-        <div className="mb-1">
-          {message.attachment.type === 'image' ? (
-            <img
-              src={`data:${message.attachment.mime || 'image/png'};base64,${message.attachment.data}`}
-              alt={message.attachment.name || 'Image'}
-              className="max-h-48 rounded-2xl object-contain border border-brand-border"
-            />
-          ) : (
-            <a
-              href={`data:application/octet-stream;base64,${message.attachment.data}`}
-              download={message.attachment.name || 'file'}
-              className="text-xs text-brand-accent hover:underline inline-flex items-center gap-1"
-            >
-              <Icons.FileText size={12} /> {message.attachment.name || 'File'}
-            </a>
-          )}
+}> = ({ message, isMe, showAvatar, myAvatar, myInitial, theirAvatar, theirTeamEmoji, theirName, idx, onReply }) => {
+  const bubbleFirst = showAvatar;
+  const jumboEmoji =
+    !message.replyTo &&
+    !(message.attachment?.data && message.attachment?.type === 'image') &&
+    isJumboEmojiOnly(message.text);
+
+  const bubble = (
+    <div>
+      {message.replyTo?.text && (
+        <div className="cipher-reply-preview">
+          <div className="cipher-reply-name">{isMe ? 'You' : theirName}</div>
+          <div className="cipher-reply-snippet">{(message.replyTo.text || '').slice(0, 120)}</div>
         </div>
       )}
-      <div className={`px-4 py-2.5 text-[13px] leading-relaxed ${isMe ? 'message-bubble-own' : 'message-bubble-other'}`}>
-        {message.replyTo?.text && (
-          <div className="text-[11px] opacity-80 border-l-2 border-white/40 pl-2 mb-1.5 truncate max-w-full">
-            {(message.replyTo.text || '').slice(0, 80)}{message.replyTo.text.length > 80 ? '…' : ''}
-          </div>
-        )}
-        {message.text || (message.attachment ? 'Attachment' : '')}
-      </div>
-      <div className="flex items-center gap-2 mt-0.5 px-1">
-        <span className="text-[10px] text-brand-text-muted/70 font-mono">{formatTime(message.at)}</span>
+      {message.attachment?.data && message.attachment.type === 'image' ? (
+        <div
+          className={`overflow-hidden border border-[rgba(100,120,255,0.1)] rounded-2xl max-w-[220px] ${isMe ? 'cipher-bubble-s ' + (bubbleFirst ? 'first' : 'mid') : 'cipher-bubble-r ' + (bubbleFirst ? 'first' : 'mid')}`}
+        >
+          <img
+            src={`data:${message.attachment.mime || 'image/png'};base64,${message.attachment.data}`}
+            alt=""
+            className="w-full h-auto object-cover max-h-[155px]"
+          />
+        </div>
+      ) : jumboEmoji ? (
+        <div className={`cipher-jumbo-emoji-wrap ${isMe ? 'cipher-jumbo-emoji-wrap--me' : ''}`}>
+          <span className="cipher-emoji-jumbo-emote">
+            <span className="cipher-emoji-jumbo-char" key={`emoji-${message.at}`}>
+              {(message.text || '').trim()}
+            </span>
+          </span>
+        </div>
+      ) : (
+        <div className={`${isMe ? 'cipher-bubble-s' : 'cipher-bubble-r'} ${bubbleFirst ? 'first' : 'mid'}`}>
+          {message.text || (message.attachment ? 'Attachment' : '')}
+        </div>
+      )}
+      <div className={`cipher-msg-footer ${isMe ? 'justify-end' : ''}`}>
+        <span>{formatTime(message.at)}</span>
         {onReply && (
-          <button type="button" onClick={onReply} className="text-[10px] text-brand-accent/60 hover:text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity">
+          <button type="button" onClick={onReply} className="text-[var(--i3)] opacity-70 hover:opacity-100 text-[9px] uppercase tracking-wide">
             Reply
           </button>
         )}
         {isMe && (
-          <div className="flex gap-0.5">
-            <Icons.ChevronRight size={9} className="text-green-400/70" />
-            <Icons.ChevronRight size={9} className="text-green-400/70 -ml-1.5" />
-          </div>
+          <Icons.Check size={13} strokeWidth={2.2} className="text-[rgba(0,170,255,0.75)]" />
         )}
       </div>
     </div>
-  </motion.div>
-);
+  );
+
+  return (
+    <div
+      className={`cipher-msg-row group ${isMe ? 's' : 'r'}${jumboEmoji ? ' jumbo' : ''}`}
+      style={{ animationDelay: `${idx * 0.02}s` }}
+    >
+      <div className={`cipher-msg-ava ${showAvatar ? '' : 'hide'}`}>
+        {isMe
+          ? myAvatar
+            ? <img src={`data:image/png;base64,${myAvatar}`} alt="" className="w-full h-full object-cover rounded-full" />
+            : myInitial
+          : theirAvatar
+            ? <img src={`data:image/png;base64,${theirAvatar}`} alt="" className="w-full h-full object-cover rounded-full" />
+            : theirTeamEmoji || theirName.charAt(0).toUpperCase()}
+      </div>
+      {bubble}
+    </div>
+  );
+};
