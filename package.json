@@ -9,6 +9,7 @@
     "build:web": "npm --prefix apps/web install && npm --prefix apps/web run build",
     "stage:client": "node scripts/stage-client.mjs",
     "build:production": "npm run build:web && npm run stage:client",
-    "start:server": "npm --prefix apps/server start"
+    "start:server": "npm --prefix apps/server start",
+    "render:build": "npm ci --prefix apps/web && npm run build --prefix apps/web && node scripts/stage-client.mjs && npm ci --prefix apps/server"
   }
 }

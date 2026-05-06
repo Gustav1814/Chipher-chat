@@ -15,8 +15,13 @@ Same idea as Railway: **one Web Service** builds the React app, copies it into `
 | **Branch** | `main` |
 | **Root directory** | *(leave empty)* — repo root |
 | **Runtime** | **Node** |
-| **Build Command** | `cd apps/web && npm ci && npm run build && mkdir -p ../server/client && cp -r dist/. ../server/client/ && cd ../server && npm ci` |
+| **Build Command** | `npm run render:build` |
 | **Start Command** | `cd apps/server && npm start` |
+
+**Important:** Replace the **entire** default build/start (`yarn`, `yarn build`, etc.). The default **`yarn`** at the repo root does **not** run `npm ci` in `apps/server`, so the deploy “succeeds” but **`npm start` fails with `Cannot find module 'express'`**. If you leave `yarn` stuck to `cd`, the shell runs `yarncd` and fails.
+
+Equivalent one-liner (no root script):  
+`cd apps/web && npm ci && npm run build && mkdir -p ../server/client && cp -r dist/. ../server/client/ && cd ../server && npm ci`
 | **Instance type** | **Free** (ok to try) |
 
 4. **Environment** → **Add environment variable**:
