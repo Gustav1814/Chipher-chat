@@ -1,0 +1,16 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# New → Blueprint → connect repo, or add this file and sync.
+
+services:
+  - type: web
+    name: cipherchat
+    env: node
+    plan: free
+    buildCommand: cd apps/web && npm ci && npm run build && mkdir -p ../server/client && cp -r dist/. ../server/client/ && cd ../server && npm ci
+    startCommand: cd apps/server && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"

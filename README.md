@@ -69,7 +69,7 @@ cd apps/server && npm install && NODE_ENV=production npm start
 
 This builds the SPA, copies `apps/web/dist` → `apps/server/client`, and serves UI + `/api` + `/socket.io` from one process.
 
-**Checklist:** `NODE_ENV=production`, platform-managed `PORT`, persistent **`DB_PATH`** for SQLite (volume/disk), HTTPS at the edge. Split UI/API hosts need **`CORS_ORIGIN`** on the server and **`VITE_API_URL`** at build time for the web app. See `apps/server/DEPLOY.md` and `RAILWAY.md`.
+**Checklist:** `NODE_ENV=production`, platform-managed `PORT`, persistent **`DB_PATH`** for SQLite (volume/disk), HTTPS at the edge. Split UI/API hosts need **`CORS_ORIGIN`** on the server and **`VITE_API_URL`** at build time for the web app. See `apps/server/DEPLOY.md`, `RAILWAY.md`, and **`RENDER.md`** for a fast **Render.com** setup.
 
 ---
 
